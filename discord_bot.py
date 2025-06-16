@@ -23,7 +23,8 @@ intents.message_content = True
 client = discord.Client(intents=intents)
 
 # Memory: {user_id: [(role, message)]}
-chat_histories = {}
+user_chat_history = {}
+total_chat_history = {}
 
 def summarize_conversation(history):
     # prompt will only be applied when looking at the entire conversation
@@ -39,7 +40,7 @@ def summarize_conversation(history):
     response = model.generate_content(prompt)
     return response.text.strip()
 
-def query_data():
+def query_data(sql_query):
 
     # change prompt to not be a hypothetical if correct. Validating will be the next step.
     prompt = f"show me an SQL query for the following message and assume that whatever tables/rows/column names you decide to use are correct. DO NOT GIVE ME ANY EXPLANATIONS, I ONLY WANT TO SEE THE SQL QUERIES. I DO NOT WANT ANY OPTIONS. JUST CHOOSE AN OPTION AND SEND IT TO ME: {sql_query}\n"
@@ -64,44 +65,71 @@ async def on_message(message):
         return
 
     user_id = message.author.id
+    user_name = message.author
     user_message = message.content.strip()
+    channel_id = message.channel.id
 
-    # Init chat history for user
-    if user_id not in chat_histories:
-        chat_histories[user_id] = []
+    # Init chat history
+    if user_id not in user_chat_history:
+        user_chat_history[user_id] = []
+
+    if channel_id not in total_chat_history:
+        total_chat_history[channel_id] = []
+
 
     # Handle special commands
     if user_message.lower() == "exit":
-        chat_histories[user_id] = []
+        user_chat_history[user_id] = []
         await message.channel.send("🧠 Memory cleared!")
         return
 
     if user_message.lower() == "summary":
-        summary = summarize_conversation(chat_histories[user_id])
+        summary = summarize_conversation(user_chat_history[user_id])
         await message.channel.send(f"📋 Summary:\n{summary}")
         return
     
     if user_message.lower().startswith("query: "):
         sql_query = user_message[7:].strip()
         query = query_data(sql_query)
-        # query = summarize_conversation(chat_histories[user_id])
         await message.channel.send(f"👁️‍🗨️ Query:\n{query}")
         return
 
     if user_message.lower().startswith("search: "):
         search_query = user_message[8:].strip()
-        search_result = search_conversation(chat_histories[user_id], search_query)
+        search_result = search_conversation(user_chat_history[user_id], search_query)
         await message.channel.send(f"🔎 Search:\n{search_result}")
         return
     
 
 
+    # TESTING SECTION START ---------------------------------------------------------------------------------------------------------
+    # anything here will run when you say "test" to the bot in a discord chat
+    if user_message.lower() == "test":
+        await message.channel.send(user_id)
+        await message.channel.send(f"{user_name.mention} just sent me a message")
+        return
+    
+    # this will show the current history the chat bot has stored
+    # later make it so that it will show histories for each channel it has stored seperatley
+    if user_message.lower() == "show_history":
+        await message.channel.send(total_chat_history[channel_id])
+        return
+
+    #
+    if user_message.lower() == "where_am_i":
+        await message.channel.send(message.channel.name)
+        await message.channel.send(message.channel.id)
+        return
+
+    # TESTING SECTION END -----------------------------------------------------------------------------------------------------------
+
     # Update history
-    chat_histories[user_id].append(("User", user_message))
+    total_chat_history[channel_id].append((f"{user_name}", user_message))
+    user_chat_history[user_id].append((f"{user_name}", user_message))
 
     # Build prompt
     full_prompt = "Do not give me super long responses or bullet points unless asked to do so."
-    for role, msg in chat_histories[user_id]:
+    for role, msg in user_chat_history[user_id]:
         full_prompt += f"{role}: {msg}\n"
     full_prompt += "Bot:"
 
@@ -112,8 +140,10 @@ async def on_message(message):
         await message.channel.send(f"❌ Error: {e}")
         return
 
+    # (!) (!) (!) THIS SECTION IS ONLY FOR DEMO PURPOSES (!) (!) (!)
     # Send and store bot reply
     await message.channel.send(bot_reply)
-    chat_histories[user_id].append(("Bot", bot_reply))
+    total_chat_history[channel_id].append(("Bot", bot_reply))
+    user_chat_history[user_id].append(("Bot", bot_reply))
 
 client.run(discord_token)
