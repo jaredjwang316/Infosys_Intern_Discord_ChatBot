@@ -41,7 +41,8 @@ def summarize_conversation(history):
 
 def query_data():
 
-    prompt = "show me an SQL query for the following message:\n"
+    # change prompt to not be a hypothetical if correct. Validating will be the next step.
+    prompt = f"show me an SQL query for the following message and assume that whatever tables/rows/column names you decide to use are correct. DO NOT GIVE ME ANY EXPLANATIONS, I ONLY WANT TO SEE THE SQL QUERIES. I DO NOT WANT ANY OPTIONS. JUST CHOOSE AN OPTION AND SEND IT TO ME: {sql_query}\n"
     response = model.generate_content(prompt)
     return response.text.strip()
 
@@ -80,16 +81,17 @@ async def on_message(message):
         await message.channel.send(f"📋 Summary:\n{summary}")
         return
     
-    if user_message.lower() == "query":
-        query = query_data()
+    if user_message.lower().startswith("query: "):
+        sql_query = user_message[7:].strip()
+        query = query_data(sql_query)
         # query = summarize_conversation(chat_histories[user_id])
-        await message.channel.send(f"[] Query:\n{query}")
+        await message.channel.send(f"👁️‍🗨️ Query:\n{query}")
         return
 
     if user_message.lower().startswith("search: "):
         search_query = user_message[8:].strip()
         search_result = search_conversation(chat_histories[user_id], search_query)
-        await message.channel.send(f"[] Search:\n{search_result}")
+        await message.channel.send(f"🔎 Search:\n{search_result}")
         return
     
 
