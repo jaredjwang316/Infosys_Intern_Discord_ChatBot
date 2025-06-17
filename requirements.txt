@@ -8,3 +8,5 @@ google-genai==1.20.0
 sentence-transformers==4.1.0
 chromadb==1.0.12
 psycopg2
+
+mysql-connector-python

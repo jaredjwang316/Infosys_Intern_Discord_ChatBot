@@ -9,6 +9,8 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS, Chroma
 from langchain.chains.retrieval_qa.base import RetrievalQA
 from langchain.embeddings import SentenceTransformerEmbeddings
+import mysql.connector
+from mysql.connector import Error as  MySQLError
 import re
 import psycopg2
 
@@ -16,11 +18,21 @@ load_dotenv()
 api_key = os.getenv("GOOGLE_API_KEY")
 discord_token = os.getenv("DISCORD_BOT_TOKEN")
 
-db_host = os.getenv("DB_HOST")
-db_port = os.getenv("DB_PORT")
-db_name = os.getenv("DB_NAME")
-db_user = os.getenv("DB_USER")
-db_password = os.getenv("DB_PASSWORD")
+with open("schema.txt", "r") as f:
+    SCHEMA_TEXT = f.read()
+
+# DB config
+DB_CONFIG = {
+    "host": os.getenv("DB_HOST", "127.0.0.1"),
+    "user": os.getenv("DB_USER", "test"),
+    "password": os.getenv("DB_PASS", "1234"),
+    "database": os.getenv("DB_NAME", "chatops"),
+}
+conn = mysql.connector.connect(**DB_CONFIG)
+cur =  conn.cursor()
+
+with open("schema.txt", "r") as f:
+    SCHEMA_TEXT = f.read()
 
 if not api_key or not discord_token:
     print("❌ Missing keys in .env")
@@ -86,58 +98,8 @@ def summarize_conversation(history):
 
 def query_data(sql_query):
     # change prompt to not be a hypothetical if correct. Validating will be the next step.
-    
-    # feed the schema manually to Gemini so it can generate a correct query, as it cannot access your actual database
-    db_schema = """
-    -- 1. Employees – Infosys staff
-    CREATE TABLE employees (
-        id SERIAL PRIMARY KEY,
-        name VARCHAR(100) NOT NULL,
-        email VARCHAR(100) UNIQUE NOT NULL,
-        role VARCHAR(50) NOT NULL,
-        joined_at DATE NOT NULL
-    );
 
-    -- 2. Clients – Represents the external clients Infosys serves.
-    CREATE TABLE clients (
-        id SERIAL PRIMARY KEY,
-        name VARCHAR(100) NOT NULL,
-        industry VARCHAR(50) NOT NULL,
-        location VARCHAR(100)
-    );
-
-    -- 3. Projects – client projects Infosys runs
-    CREATE TABLE projects (
-        id SERIAL PRIMARY KEY,
-        name VARCHAR(100) NOT NULL,
-        client_id INTEGER REFERENCES clients(id) ON DELETE CASCADE,
-        start_date DATE NOT NULL,
-        end_date DATE,
-        status VARCHAR(20) NOT NULL
-    );
-
-    -- 4. Employee Project Assignments – who is working on what
-    CREATE TABLE employee_project_assignments (
-        id SERIAL PRIMARY KEY,
-        employee_id INTEGER REFERENCES employees(id) ON DELETE CASCADE,
-        project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE,
-        assigned_on DATE NOT NULL,
-        role_on_project VARCHAR(50) NOT NULL
-    );
-
-    -- 5. Skills – skill catalog
-    CREATE TABLE skills (
-        id SERIAL PRIMARY KEY,
-        name VARCHAR(50) NOT NULL
-    );
-
-    -- 6. Employee Skills – each employee’s skills
-    CREATE TABLE employee_skills (
-        employee_id INTEGER REFERENCES employees(id) ON DELETE CASCADE,
-        skill_id INTEGER REFERENCES skills(id) ON DELETE CASCADE,
-        PRIMARY KEY (employee_id, skill_id)
-    );
-    """
+    db_schema = SCHEMA_TEXT
 
     prompt_template = f"""
     You are an expert at querying databases. Your task is to generate a SQL query based on the user's request.
@@ -147,7 +109,6 @@ def query_data(sql_query):
     - Ensure the SQL query is syntactically correct.
     - Use appropriate table and column names from the schema.
     - Do not use comments, markdown, or any other formatting in the SQL query.
-    - You are only allowed to query the Employee table.
     
     ### DATABASE SCHEMA ###
     {db_schema}
@@ -173,7 +134,7 @@ def query_data(sql_query):
         print(response)
         count += 1
         if count > 3:
-            return "❌ Unable to generate a valid SQL query after multiple attempts."
+            return "❌ Unable to generate a valid SQL query after multiple attempts.", False
         
         reprompt_template = f"""
         The SQL query you provided is not valid. Please generate a correct SQL query based on the user's request and the database schema.
@@ -182,7 +143,6 @@ def query_data(sql_query):
         - Ensure the SQL query is syntactically correct.
         - Use appropriate table and column names from the schema.
         - Do not use comments, markdown, or any other formatting in the SQL query.
-        - You are only allowed to query the Employee table.
 
         ### DATABASE SCHEMA ###
         {db_schema}
@@ -198,37 +158,7 @@ def query_data(sql_query):
         response = model.invoke(reprompt_template).content.strip()
         response = strip_query(response)
 
-    try:
-        conn = psycopg2.connect(
-            host=db_host,
-            port=db_port,
-            dbname=db_name,
-            user=db_user,
-            password=db_password
-        )
-        cur = conn.cursor()     # Create a cursor object that allows you to Execute SQL commands and fetch results from database
-        cur.execute(response)   # Runs the SQL query 
-        rows = cur.fetchall()   # Fetches all the rows returned by the executed query.
-        colnames = [desc[0] for desc in cur.description]    # gets the names of the columns in the result set.
-
-        cur.close()     # ends the query session
-        conn.close()
-
-        if not rows:    #query ran successfully but result is empty
-            return "✅ Query executed, but no results found."
-
-        # Format result
-        result_lines = [" | ".join(colnames)]   #Joins all column names with | separator to create a readable header 
-        result_lines.append("-" * 50)   #50-dash divider line
-        for row in rows:
-            result_lines.append(" | ".join(str(item) for item in row))
-
-        return "\n".join(result_lines)
-    except Exception as e:
-        return f"❌ Error executing SQL query: {str(e)}"
-
-
-
+    return response, True
 
 def is_valid_sql(query):
     if not query or not isinstance(query, str):
@@ -329,8 +259,17 @@ async def on_message(message):
     
     if user_message.lower().startswith("query: "):
         sql_query = user_message[7:].strip()
-        query = query_data(sql_query)
-        await message.channel.send(f"👁️‍🗨️ Query:\n{query}")
+        query, result = query_data(sql_query)
+        print(f"Generated SQL: {query}")
+        if not result:
+            await message.channel.send(query)
+            return
+        else:
+            final_sql, ok = cur.execute(query)
+            if not ok:
+                await message.channel.send(f"❌ Could not execute SQL even after retry. Final SQL was:\nsql\n{final_sql}\n")
+                return
+        await message.channel.send(final_sql)
         return
 
     if user_message.lower().startswith("search: "):
