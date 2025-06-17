@@ -75,7 +75,6 @@ def summarize_conversation(history):
     return response.content.strip()
 
 def query_data(sql_query):
-
     # change prompt to not be a hypothetical if correct. Validating will be the next step.
 
     db_schema = """
