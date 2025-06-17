@@ -1,13 +1,13 @@
 langchain
 langchain-openai
 langchain-google-genai
-langchain-community==0.3.25
+langchain-community
 python-dotenv
 discord
-google-genai==1.20.0
-sentence-transformers==4.1.0
-chromadb==1.0.12
-psycopg2
+google-genai
+sentence-transformers
+chromadb
+# psycopg2
 
 mysql-connector-python
 faker

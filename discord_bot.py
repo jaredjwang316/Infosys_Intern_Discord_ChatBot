@@ -12,7 +12,7 @@ from langchain.embeddings import SentenceTransformerEmbeddings
 import mysql.connector
 from mysql.connector import Error as  MySQLError
 import re
-import psycopg2
+# import psycopg2
 
 load_dotenv()
 api_key = os.getenv("GOOGLE_API_KEY")
@@ -163,15 +163,19 @@ def is_valid_sql(query):
         return False
 
     cleaned_text = query.upper().strip()
-    sql_keywords = ["SELECT", "FROM", "WHERE", "JOIN"]
-    allowed_table_names = [    "EMPLOYEES", "CLIENTS", "PROJECTS", 
-                           "EMPLOYEE_PROJECT_ASSIGNMENTS", "SKILLS", "EMPLOYEE_SKILLS", "DEPARTMENT", "PROJECT"]
+    blacklisted_sql_keywords = ["INSERT", "UPDATE", "DELETE", "DROP", "ALTER", "CREATE", "TRUNCATE", "GRANT", "REVOKE"]
+    allowed_table_names = ["EMPLOYEES", "CLIENTS", "PROJECTS", 
+                           "EMPLOYEE_PROJECT_ASSIGNMENTS", "SKILLS", "EMPLOYEE_SKILLS", "DEPARTMENT", "PROJECT", "EMPLOYEE"]
+    # allowed_table_names = ["EMPLOYEE", "DEPARTMENT", "PROJECT"]
     
     if not cleaned_text.startswith("SELECT"):
+        print("Does not start with SELECT")
         return False
     if "FROM" not in cleaned_text:
+        print("No FROM clause")
         return False
-    if not any(keyword in cleaned_text for keyword in sql_keywords):
+    if any(keyword in cleaned_text for keyword in blacklisted_sql_keywords):
+        print("Contains blacklisted keywords")
         return False
     
     from_pattern = r"\bFROM\s+(`|\")?(\w+)(`|\")?"
@@ -180,13 +184,12 @@ def is_valid_sql(query):
     from_tables = re.findall(from_pattern, cleaned_text)
     join_tables = re.findall(join_pattern, cleaned_text)
 
-    extracted_tables = [table[1] for table in from_tables + join_tables]
-    if not extracted_tables:
+    extracted_tables = {table[1].upper() for table in from_tables + join_tables}
+    if not extracted_tables.issubset(set(allowed_table_names)):
+        print("References disallowed tables")
         return False
-
-    is_valid = set(extracted_tables).issubset(set(allowed_table_names))
-
-    return is_valid
+    
+    return True
 
 # uses Chroma, FAISS is hard to install on macos - rochan
 def search_conversation(history, search_query):
@@ -222,6 +225,30 @@ def search_conversation(history, search_query):
     # return qa.run(prompt) # deprecated
     return qa.invoke(prompt)
 
+def split_response(response):
+    max_length = 1900
+    return [response[i:i+max_length] for i in range(0, len(response), max_length)]
+
+def format_table(table):
+    max_length = 2000
+    lines = table.split("\n")
+    formatted_lines = []
+    current_chunk = ""
+
+    curr_len = 0
+    for line in lines:
+        if curr_len + len(line) >= max_length:
+            formatted_lines.append(current_chunk)
+            current_chunk = line + "\n"
+            curr_len = len(line) + 1
+        else:
+            current_chunk += line + "\n"
+            curr_len += len(line) + 1
+    if current_chunk:
+        formatted_lines.append(current_chunk)
+    return formatted_lines
+
+
 @client.event
 async def on_ready():
     print(f"✅ Logged in as {client.user}")
@@ -252,7 +279,11 @@ async def on_message(message):
 
     if user_message.lower() == "summary":
         summary = summarize_conversation(user_chat_history[user_id])
-        await message.channel.send(f"📋 Summary:\n{summary}")
+        response = split_response(summary)
+        await message.channel.send(f"📋 Summary:\n{response[0]}")
+        if len(response) > 1:
+            for part in response[1:]:
+                await message.channel.send(part)
         return
     
     if user_message.lower().startswith("query: "):
@@ -279,8 +310,11 @@ async def on_message(message):
             cols = [desc[0] for desc in cur.description]
             lines = [" | ".join(cols)]
             lines += [" | ".join(map(str, row)) for row in rows]
-            table = "```" + "\n".join(lines) + "```"
-            await message.channel.send(table)
+            table = "\n".join(lines)
+            tables = format_table(table)
+            for table in tables:
+                text = "```" + table + "```"
+                await message.channel.send(text)
 
             return
 
@@ -328,13 +362,15 @@ async def on_message(message):
     try:
         response = model.invoke(full_prompt)
         bot_reply = response.content.strip()
+        replies = split_response(bot_reply)
     except Exception as e:
         await message.channel.send(f"❌ Error: {e}")
         return
 
     # (!) (!) (!) THIS SECTION IS ONLY FOR DEMO PURPOSES (!) (!) (!)
     # Send and store bot reply
-    await message.channel.send(bot_reply)
+    for reply in replies:
+        await message.channel.send(reply)
     total_chat_history[channel_id].append(("Bot", bot_reply))
     user_chat_history[user_id].append(("Bot", bot_reply))
 
