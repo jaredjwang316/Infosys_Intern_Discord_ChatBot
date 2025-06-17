@@ -164,7 +164,16 @@ def query_data(sql_query):
     response = model.invoke(prompt_template).content.strip()
 
     def strip_query(query):
-        return query.strip().strip('`').strip('"').strip("'").replace('sql', '').replace('SQL', '').strip()
+        # Remove common code fences and leading/trailing whitespace, but not quotes inside
+        query = query.strip()
+        # Remove markdown code block fences if present (```sql or ``` etc.)
+        if query.startswith("```") and query.endswith("```"):
+            query = "\n".join(query.split("\n")[1:-1]).strip()
+        # Remove single line backticks (`)
+        query = query.strip('`').strip()
+        # Remove any leading 'sql' or 'SQL' on a separate line
+        query = re.sub(r"^(sql|SQL)\s*", "", query, flags=re.IGNORECASE)
+        return query
     
     response = strip_query(response)
 
