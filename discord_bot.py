@@ -119,6 +119,8 @@ def query_data(sql_query):
     ### SQL QUERY ###
     """
 
+    print(prompt_template)
+
     message = [
         HumanMessage(content=prompt_template)
     ]
@@ -167,7 +169,7 @@ def is_valid_sql(query):
     cleaned_text = query.upper().strip()
     sql_keywords = ["SELECT", "FROM", "WHERE", "JOIN"]
     allowed_table_names = [    "EMPLOYEES", "CLIENTS", "PROJECTS", 
-                           "EMPLOYEE_PROJECT_ASSIGNMENTS", "SKILLS", "EMPLOYEE_SKILLS"]
+                           "EMPLOYEE_PROJECT_ASSIGNMENTS", "SKILLS", "EMPLOYEE_SKILLS", "DEPARTMENT", "PROJECT"]
     
     if not cleaned_text.startswith("SELECT"):
         return False
@@ -260,17 +262,31 @@ async def on_message(message):
     if user_message.lower().startswith("query: "):
         sql_query = user_message[7:].strip()
         query, result = query_data(sql_query)
-        print(f"Generated SQL: {query}")
+
+        print(query)
+
         if not result:
             await message.channel.send(query)
             return
         else:
-            final_sql, ok = cur.execute(query)
-            if not ok:
-                await message.channel.send(f"❌ Could not execute SQL even after retry. Final SQL was:\nsql\n{final_sql}\n")
+            cur.execute(query)
+            if not query:
+                await message.channel.send(f"❌ Could not execute SQL even after retry. Final SQL was:\nsql\n{query}\n")
                 return
-        await message.channel.send(final_sql)
-        return
+            
+            rows = cur.fetchall()
+
+            if not rows:
+                await message.channel.send("🔍 No results found.")
+                return
+            
+            cols = [desc[0] for desc in cur.description]
+            lines = [" | ".join(cols)]
+            lines += [" | ".join(map(str, row)) for row in rows]
+            table = "```" + "\n".join(lines) + "```"
+            await message.channel.send(table)
+
+            return
 
     if user_message.lower().startswith("search: "):
         search_query = user_message[8:].strip()
