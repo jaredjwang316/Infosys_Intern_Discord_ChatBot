@@ -86,14 +86,57 @@ def summarize_conversation(history):
 
 def query_data(sql_query):
     # change prompt to not be a hypothetical if correct. Validating will be the next step.
-
+    
+    # feed the schema manually to Gemini so it can generate a correct query, as it cannot access your actual database
     db_schema = """
-    CREATE TABLE IF NOT EXISTS Employee (
-        id          INT AUTO_INCREMENT PRIMARY KEY,
-        name        VARCHAR(100)   NOT NULL,
-        address     VARCHAR(200)   NOT NULL,
-        start_date  DATE           NOT NULL
-    ) ENGINE=InnoDB;
+    -- 1. Employees – Infosys staff
+    CREATE TABLE employees (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(100) NOT NULL,
+        email VARCHAR(100) UNIQUE NOT NULL,
+        role VARCHAR(50) NOT NULL,
+        joined_at DATE NOT NULL
+    );
+
+    -- 2. Clients – Represents the external clients Infosys serves.
+    CREATE TABLE clients (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(100) NOT NULL,
+        industry VARCHAR(50) NOT NULL,
+        location VARCHAR(100)
+    );
+
+    -- 3. Projects – client projects Infosys runs
+    CREATE TABLE projects (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(100) NOT NULL,
+        client_id INTEGER REFERENCES clients(id) ON DELETE CASCADE,
+        start_date DATE NOT NULL,
+        end_date DATE,
+        status VARCHAR(20) NOT NULL
+    );
+
+    -- 4. Employee Project Assignments – who is working on what
+    CREATE TABLE employee_project_assignments (
+        id SERIAL PRIMARY KEY,
+        employee_id INTEGER REFERENCES employees(id) ON DELETE CASCADE,
+        project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE,
+        assigned_on DATE NOT NULL,
+        role_on_project VARCHAR(50) NOT NULL
+    );
+
+    -- 5. Skills – skill catalog
+    CREATE TABLE skills (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(50) NOT NULL
+    );
+
+    -- 6. Employee Skills – each employee’s skills
+    CREATE TABLE employee_skills (
+        employee_id INTEGER REFERENCES employees(id) ON DELETE CASCADE,
+        skill_id INTEGER REFERENCES skills(id) ON DELETE CASCADE,
+        PRIMARY KEY (employee_id, skill_id)
+    );
     """
 
     prompt_template = f"""
@@ -155,7 +198,37 @@ def query_data(sql_query):
         response = model.invoke(reprompt_template).content.strip()
         response = strip_query(response)
 
-    return response
+    try:
+        conn = psycopg2.connect(
+            host=db_host,
+            port=db_port,
+            dbname=db_name,
+            user=db_user,
+            password=db_password
+        )
+        cur = conn.cursor()     # Create a cursor object that allows you to Execute SQL commands and fetch results from database
+        cur.execute(response)   # Runs the SQL query 
+        rows = cur.fetchall()   # Fetches all the rows returned by the executed query.
+        colnames = [desc[0] for desc in cur.description]    # gets the names of the columns in the result set.
+
+        cur.close()     # ends the query session
+        conn.close()
+
+        if not rows:    #query ran successfully but result is empty
+            return "✅ Query executed, but no results found."
+
+        # Format result
+        result_lines = [" | ".join(colnames)]   #Joins all column names with | separator to create a readable header 
+        result_lines.append("-" * 50)   #50-dash divider line
+        for row in rows:
+            result_lines.append(" | ".join(str(item) for item in row))
+
+        return "\n".join(result_lines)
+    except Exception as e:
+        return f"❌ Error executing SQL query: {str(e)}"
+
+
+
 
 def is_valid_sql(query):
     if not query or not isinstance(query, str):
@@ -163,7 +236,8 @@ def is_valid_sql(query):
 
     cleaned_text = query.upper().strip()
     sql_keywords = ["SELECT", "FROM", "WHERE", "JOIN"]
-    allowed_table_names = ["EMPLOYEE"]
+    allowed_table_names = [    "EMPLOYEES", "CLIENTS", "PROJECTS", 
+                           "EMPLOYEE_PROJECT_ASSIGNMENTS", "SKILLS", "EMPLOYEE_SKILLS"]
     
     if not cleaned_text.startswith("SELECT"):
         return False
