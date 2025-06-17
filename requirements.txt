@@ -5,3 +5,10 @@ python-dotenv
 discord
 google-genai
 psycopg2
+
+for access to the sample database that i created, here are the credentials:
+DB_HOST = "discord-bot-query-test.cngm8486yaay.us-east-2.rds.amazonaws.com"
+DB_PORT = 5432
+DB_NAME = "discord-bot-query-test"
+DB_USER = "jaredw4"
+DB_PASSWORD = "Pwd_f0r_me"
