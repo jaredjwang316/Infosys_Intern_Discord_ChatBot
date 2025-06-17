@@ -4,11 +4,12 @@ from google import genai
 from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
+import re
 
 # Load .env values
 load_dotenv()
 api_key = os.getenv("GOOGLE_API_KEY")
-discord_token = os.getenv("DISCORD_BOT_TOKEN")  #secret authentication key that allows your Python bot to log in to Discord’s API as your bot user. 
+discord_token = os.getenv("DISCORD_BOT_TOKEN")
 
 # Check keys
 if not api_key or not discord_token:
@@ -26,7 +27,7 @@ model = ChatGoogleGenerativeAI(
 
 # Bot intents
 intents = discord.Intents.default()
-intents.message_content = True  #allows your bot to read the actual message content of messages sent in the server.
+intents.message_content = True
 client = discord.Client(intents=intents)
 
 # Memory: {user_id: [(role, message)]}
@@ -73,12 +74,107 @@ def summarize_conversation(history):
     response =  model.invoke(message)
     return response.content.strip()
 
-# def query_data(sql_query):
+def query_data(sql_query):
+    # change prompt to not be a hypothetical if correct. Validating will be the next step.
 
-#     # change prompt to not be a hypothetical if correct. Validating will be the next step.
-#     prompt = f"show me an SQL query for the following message and assume that whatever tables/rows/column names you decide to use are correct. DO NOT GIVE ME ANY EXPLANATIONS, I ONLY WANT TO SEE THE SQL QUERIES. I DO NOT WANT ANY OPTIONS. JUST CHOOSE AN OPTION AND SEND IT TO ME: {sql_query}\n"
-#     response = model.generate_content(prompt)
-#     return response.text.strip()
+    db_schema = """
+    CREATE TABLE IF NOT EXISTS Employee (
+        id          INT AUTO_INCREMENT PRIMARY KEY,
+        name        VARCHAR(100)   NOT NULL,
+        address     VARCHAR(200)   NOT NULL,
+        start_date  DATE           NOT NULL
+    ) ENGINE=InnoDB;
+    """
+
+    prompt_template = f"""
+    You are an expert at querying databases. Your task is to generate a SQL query based on the user's request.
+
+    ### INSTRUCTION ###
+    Given the database schema below, generate a SQL query that fulfills the user's request.
+    - Ensure the SQL query is syntactically correct.
+    - Use appropriate table and column names from the schema.
+    - Do not use comments, markdown, or any other formatting in the SQL query.
+    - You are only allowed to query the Employee table.
+    
+    ### DATABASE SCHEMA ###
+    {db_schema}
+
+    ### USER REQUEST ###
+    {sql_query}
+
+    ### SQL QUERY ###
+    """
+
+    message = [
+        HumanMessage(content=prompt_template)
+    ]
+    response = model.invoke(prompt_template).content.strip()
+
+    def strip_query(query):
+        return query.strip().strip('`').strip('"').strip("'").replace('sql', '').replace('SQL', '').strip()
+    
+    response = strip_query(response)
+
+    count = 0
+    while not is_valid_sql(response):
+        print(response)
+        count += 1
+        if count > 3:
+            return "❌ Unable to generate a valid SQL query after multiple attempts."
+        
+        reprompt_template = f"""
+        The SQL query you provided is not valid. Please generate a correct SQL query based on the user's request and the database schema.
+        ### INSTRUCTION ###
+        Given the database schema below, generate a SQL query that fulfills the user's request.
+        - Ensure the SQL query is syntactically correct.
+        - Use appropriate table and column names from the schema.
+        - Do not use comments, markdown, or any other formatting in the SQL query.
+        - You are only allowed to query the Employee table.
+
+        ### DATABASE SCHEMA ###
+        {db_schema}
+
+        ### USER REQUEST ###
+        {sql_query}
+
+        ### PREVIOUS SQL QUERY ###
+        {response}
+
+        ### NEW SQL QUERY ###
+        """
+        response = model.invoke(reprompt_template).content.strip()
+        response = strip_query(response)
+
+    return response
+
+def is_valid_sql(query):
+    if not query or not isinstance(query, str):
+        return False
+
+    cleaned_text = query.upper().strip()
+    sql_keywords = ["SELECT", "FROM", "WHERE", "JOIN"]
+    allowed_table_names = ["EMPLOYEE"]
+    
+    if not cleaned_text.startswith("SELECT"):
+        return False
+    if "FROM" not in cleaned_text:
+        return False
+    if not any(keyword in cleaned_text for keyword in sql_keywords):
+        return False
+    
+    from_pattern = r"\bFROM\s+(`|\")?(\w+)(`|\")?"
+    join_pattern = r"\bJOIN\s+(`|\")?(\w+)(`|\")?"
+
+    from_tables = re.findall(from_pattern, cleaned_text)
+    join_tables = re.findall(join_pattern, cleaned_text)
+
+    extracted_tables = [table[1] for table in from_tables + join_tables]
+    if not extracted_tables:
+        return False
+
+    is_valid = set(extracted_tables).issubset(set(allowed_table_names))
+
+    return is_valid
 
 def search_conversation(history, search_query):
 
@@ -90,11 +186,11 @@ def search_conversation(history, search_query):
 
 @client.event
 async def on_ready():
-    print(f"✅ Logged in as {client.user}") #Triggered once when the bot starts up and connects to Discord.
+    print(f"✅ Logged in as {client.user}")
 
 @client.event
-async def on_message(message):  # main handler that runs every time a message is sent in a server/channel the bot is in.
-    if message.author == client.user:   #prevents the bot from replying to itself and causing an infinite loop.
+async def on_message(message):
+    if message.author == client.user:
         return
 
     user_id = message.author.id
@@ -121,11 +217,11 @@ async def on_message(message):  # main handler that runs every time a message is
         await message.channel.send(f"📋 Summary:\n{summary}")
         return
     
-    # if user_message.lower().startswith("query: "):
-    #     sql_query = user_message[7:].strip()
-    #     query = query_data(sql_query)
-    #     await message.channel.send(f"👁️‍🗨️ Query:\n{query}")
-    #     return
+    if user_message.lower().startswith("query: "):
+        sql_query = user_message[7:].strip()
+        query = query_data(sql_query)
+        await message.channel.send(f"👁️‍🗨️ Query:\n{query}")
+        return
 
     if user_message.lower().startswith("search: "):
         search_query = user_message[8:].strip()
@@ -179,4 +275,4 @@ async def on_message(message):  # main handler that runs every time a message is
     total_chat_history[channel_id].append(("Bot", bot_reply))
     user_chat_history[user_id].append(("Bot", bot_reply))
 
-client.run(discord_token)   #starts the bot and logs it into Discord using that token.
+client.run(discord_token)
