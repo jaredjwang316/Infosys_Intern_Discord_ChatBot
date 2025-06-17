@@ -1,7 +1,7 @@
 import os
 import re
 import discord
-from google import genai
+import google.generativeai as genai
 from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
@@ -10,11 +10,20 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS, Chroma
 from langchain.chains.retrieval_qa.base import RetrievalQA
 from langchain.embeddings import SentenceTransformerEmbeddings
+import re
+import psycopg2
 
 load_dotenv()
 api_key = os.getenv("GOOGLE_API_KEY")
 discord_token = os.getenv("DISCORD_BOT_TOKEN")
 
+db_host = os.getenv("DB_HOST")
+db_port = os.getenv("DB_PORT")
+db_name = os.getenv("DB_NAME")
+db_user = os.getenv("DB_USER")
+db_password = os.getenv("DB_PASSWORD")
+
+# Check keys
 if not api_key or not discord_token:
     print("❌ Missing keys in .env")
     exit()
