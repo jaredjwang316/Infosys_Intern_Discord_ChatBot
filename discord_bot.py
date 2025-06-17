@@ -1,14 +1,19 @@
 import os
+import re
 import discord
-from google import genai
 from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
+from langchain.schema import Document
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_community.vectorstores import FAISS, Chroma
+from langchain.chains.retrieval_qa.base import RetrievalQA
+from langchain.embeddings import SentenceTransformerEmbeddings
 import mysql.connector
 from mysql.connector import Error as  MySQLError
 import re
+import psycopg2
 
-# Load .env values
 load_dotenv()
 api_key = os.getenv("GOOGLE_API_KEY")
 discord_token = os.getenv("DISCORD_BOT_TOKEN")
@@ -18,10 +23,10 @@ with open("schema.txt", "r") as f:
 
 # DB config
 DB_CONFIG = {
-    "host": os.getenv("DB_HOST", "127.0.0.1"),
-    "user": os.getenv("DB_USER", "test"),
-    "password": os.getenv("DB_PASS", "1234"),
-    "database": os.getenv("DB_NAME", "chatops"),
+    "host": os.getenv("DB_HOST"),
+    "user": os.getenv("DB_USER"),
+    "password": os.getenv("DB_PASS"),
+    "database": os.getenv("DB_NAME"),
 }
 conn = mysql.connector.connect(**DB_CONFIG)
 cur =  conn.cursor()
@@ -31,7 +36,7 @@ if not api_key or not discord_token:
     print("❌ Missing keys in .env")
     exit()
 
-# Configure Gemini
+# gemini
 model = ChatGoogleGenerativeAI(
     model="gemini-2.5-flash-preview-05-20",
     temperature=0.7,
@@ -112,8 +117,6 @@ def query_data(sql_query):
     ### SQL QUERY ###
     """
 
-    print(prompt_template)
-
     message = [
         HumanMessage(content=prompt_template)
     ]
@@ -161,7 +164,8 @@ def is_valid_sql(query):
 
     cleaned_text = query.upper().strip()
     sql_keywords = ["SELECT", "FROM", "WHERE", "JOIN"]
-    allowed_table_names = ["EMPLOYEE", "DEPARTMENT", "PROJECT"]
+    allowed_table_names = [    "EMPLOYEES", "CLIENTS", "PROJECTS", 
+                           "EMPLOYEE_PROJECT_ASSIGNMENTS", "SKILLS", "EMPLOYEE_SKILLS", "DEPARTMENT", "PROJECT"]
     
     if not cleaned_text.startswith("SELECT"):
         return False
@@ -184,13 +188,39 @@ def is_valid_sql(query):
 
     return is_valid
 
+# uses Chroma, FAISS is hard to install on macos - rochan
 def search_conversation(history, search_query):
+    # turn history into Documents
+    docs = [
+        Document(page_content=message, metadata={"role": role})
+        for role, message in history
+    ]
 
-    prompt = f"search for the following terms and bulletpoint anything of relevance to {search_query} for me to read:\n"
-    for role, message in history:
-        prompt += f"{role}: {message}\n"
-    response = model.generate_content(prompt)
-    return response.text.strip()
+    # chunk into ~1000-char slices with 200-char overlap
+    splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+    chunks = splitter.split_documents(docs)
+
+    # embed & index in Chroma (or FAISS)
+    embeddings = SentenceTransformerEmbeddings(model_name="all-MiniLM-L6-v2")
+    # vectorstore = FAISS.from_documents(chunks, embeddings) # FAISS (difficult on mac)
+    vectorstore = Chroma.from_documents(chunks, embeddings) # Chroma (works on mac)
+
+    # build a RetrievalQA chain
+    qa = RetrievalQA.from_chain_type(
+        llm=model,
+        chain_type="map_reduce", # robust for aggregation
+        retriever=vectorstore.as_retriever(search_kwargs={"k": 5}), # top-5 chunks
+        return_source_documents=False
+    )
+
+    # run
+    prompt = (
+        f"Please gather *all* the information related to “{search_query}” "
+        "from the conversation, and present it as concise bullet points."
+    )
+
+    # return qa.run(prompt) # deprecated
+    return qa.invoke(prompt)
 
 @client.event
 async def on_ready():
@@ -288,10 +318,12 @@ async def on_message(message):
     user_chat_history[user_id].append((f"{user_name}", user_message))
 
     # Build prompt
-    full_prompt = "Do not give me super long responses or bullet points unless asked to do so."
+    full_prompt = "Do not give me super long responses or bullet points unless asked to do so.\n"
     for role, msg in user_chat_history[user_id]:
         full_prompt += f"{role}: {msg}\n"
     full_prompt += "Bot:"
+
+    print(full_prompt) # just to test
 
     try:
         response = model.invoke(full_prompt)
