@@ -182,7 +182,7 @@ def query_data(sql_query):
         - Ensure the SQL query is syntactically correct.
         - Use appropriate table and column names from the schema.
         - Do not use comments, markdown, or any other formatting in the SQL query.
-        - You are only allowed to query the Employee table.
+        - You can query any table that is allowed.
 
         ### DATABASE SCHEMA ###
         {db_schema}
