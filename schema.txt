@@ -1,0 +1,22 @@
+
+CREATE TABLE IF NOT EXISTS Employee (
+    id          INT AUTO_INCREMENT PRIMARY KEY,
+    name        VARCHAR(100)   NOT NULL,
+    address     VARCHAR(200)   NOT NULL,
+    start_date  DATE           NOT NULL
+) ENGINE=InnoDB;
+
+
+CREATE TABLE IF NOT EXISTS Department (
+    id    INT AUTO_INCREMENT PRIMARY KEY,
+    name  VARCHAR(100) NOT NULL UNIQUE
+) ENGINE=InnoDB;
+
+
+CREATE TABLE IF NOT EXISTS Project (
+    id         INT AUTO_INCREMENT PRIMARY KEY,
+    name       VARCHAR(100) NOT NULL,
+    start_date DATE           NOT NULL,
+    end_date   DATE
+) ENGINE=InnoDB;
+

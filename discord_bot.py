@@ -4,12 +4,27 @@ from google import genai
 from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
+import mysql.connector
+from mysql.connector import Error as  MySQLError
 import re
 
 # Load .env values
 load_dotenv()
 api_key = os.getenv("GOOGLE_API_KEY")
 discord_token = os.getenv("DISCORD_BOT_TOKEN")
+
+with open("schema.txt", "r") as f:
+    SCHEMA_TEXT = f.read()
+
+# DB config
+DB_CONFIG = {
+    "host": os.getenv("DB_HOST", "127.0.0.1"),
+    "user": os.getenv("DB_USER", "test"),
+    "password": os.getenv("DB_PASS", "1234"),
+    "database": os.getenv("DB_NAME", "chatops"),
+}
+conn = mysql.connector.connect(**DB_CONFIG)
+cur =  conn.cursor()
 
 # Check keys
 if not api_key or not discord_token:
@@ -77,14 +92,7 @@ def summarize_conversation(history):
 def query_data(sql_query):
     # change prompt to not be a hypothetical if correct. Validating will be the next step.
 
-    db_schema = """
-    CREATE TABLE IF NOT EXISTS Employee (
-        id          INT AUTO_INCREMENT PRIMARY KEY,
-        name        VARCHAR(100)   NOT NULL,
-        address     VARCHAR(200)   NOT NULL,
-        start_date  DATE           NOT NULL
-    ) ENGINE=InnoDB;
-    """
+    db_schema = SCHEMA_TEXT
 
     prompt_template = f"""
     You are an expert at querying databases. Your task is to generate a SQL query based on the user's request.
@@ -120,7 +128,7 @@ def query_data(sql_query):
         print(response)
         count += 1
         if count > 3:
-            return "❌ Unable to generate a valid SQL query after multiple attempts."
+            return "❌ Unable to generate a valid SQL query after multiple attempts.", False
         
         reprompt_template = f"""
         The SQL query you provided is not valid. Please generate a correct SQL query based on the user's request and the database schema.
@@ -145,7 +153,7 @@ def query_data(sql_query):
         response = model.invoke(reprompt_template).content.strip()
         response = strip_query(response)
 
-    return response
+    return response, True
 
 def is_valid_sql(query):
     if not query or not isinstance(query, str):
@@ -219,8 +227,17 @@ async def on_message(message):
     
     if user_message.lower().startswith("query: "):
         sql_query = user_message[7:].strip()
-        query = query_data(sql_query)
-        await message.channel.send(f"👁️‍🗨️ Query:\n{query}")
+        query, result = query_data(sql_query)
+        print(f"Generated SQL: {query}")
+        if not result:
+            await message.channel.send(query)
+            return
+        else:
+            final_sql, ok = cur.execute(query)
+            if not ok:
+                await message.channel.send(f"❌ Could not execute SQL even after retry. Final SQL was:\nsql\n{final_sql}\n")
+                return
+        await message.channel.send(final_sql)
         return
 
     if user_message.lower().startswith("search: "):
