@@ -4,3 +4,4 @@ langchain-google-genai
 python-dotenv
 discord
 google-genai
+psycopg2
