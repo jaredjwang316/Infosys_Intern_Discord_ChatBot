@@ -1,6 +1,7 @@
 langchain==0.3.25
 langchain-openai==0.3.23
 langchain-google-genai==2.1.5
+langchain-community==0.3.25
 python-dotenv
 discord
 google-genai==1.20.0

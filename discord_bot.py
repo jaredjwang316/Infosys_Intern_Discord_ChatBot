@@ -1,7 +1,6 @@
 import os
 import re
 import discord
-import google.generativeai as genai
 from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
@@ -23,7 +22,6 @@ db_name = os.getenv("DB_NAME")
 db_user = os.getenv("DB_USER")
 db_password = os.getenv("DB_PASSWORD")
 
-# Check keys
 if not api_key or not discord_token:
     print("❌ Missing keys in .env")
     exit()
@@ -37,6 +35,7 @@ model = ChatGoogleGenerativeAI(
     max_retries=2
 )
 
+# bot intents
 # bot intents
 intents = discord.Intents.default()
 intents.message_content = True
