@@ -4,3 +4,5 @@ langchain-google-genai==2.1.5
 python-dotenv
 discord
 google-genai==1.20.0
+sentence-transformers==4.1.0
+chromadb==1.0.12
