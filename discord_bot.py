@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 # Load .env values
 load_dotenv()
 api_key = os.getenv("GOOGLE_API_KEY")
-discord_token = os.getenv("DISCORD_BOT_TOKEN")
+discord_token = os.getenv("DISCORD_BOT_TOKEN")  #secret authentication key that allows your Python bot to log in to Discord’s API as your bot user. 
 
 # Check keys
 if not api_key or not discord_token:
@@ -19,7 +19,7 @@ model = genai.GenerativeModel("gemini-1.5-flash")
 
 # Bot intents
 intents = discord.Intents.default()
-intents.message_content = True
+intents.message_content = True  #allows your bot to read the actual message content of messages sent in the server.
 client = discord.Client(intents=intents)
 
 # Memory: {user_id: [(role, message)]}
@@ -57,11 +57,11 @@ def search_conversation(history, search_query):
 
 @client.event
 async def on_ready():
-    print(f"✅ Logged in as {client.user}")
+    print(f"✅ Logged in as {client.user}") #Triggered once when the bot starts up and connects to Discord.
 
 @client.event
-async def on_message(message):
-    if message.author == client.user:
+async def on_message(message):  # main handler that runs every time a message is sent in a server/channel the bot is in.
+    if message.author == client.user:   #prevents the bot from replying to itself and causing an infinite loop.
         return
 
     user_id = message.author.id
@@ -146,4 +146,4 @@ async def on_message(message):
     total_chat_history[channel_id].append(("Bot", bot_reply))
     user_chat_history[user_id].append(("Bot", bot_reply))
 
-client.run(discord_token)
+client.run(discord_token)   #starts the bot and logs it into Discord using that token.
