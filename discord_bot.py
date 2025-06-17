@@ -1,7 +1,9 @@
 import os
 import discord
-import google.generativeai as genai
+from google import genai
 from dotenv import load_dotenv
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
 
 # Load .env values
 load_dotenv()
@@ -14,8 +16,13 @@ if not api_key or not discord_token:
     exit()
 
 # Configure Gemini
-genai.configure(api_key=api_key)
-model = genai.GenerativeModel("gemini-1.5-flash")
+model = ChatGoogleGenerativeAI(
+    model="gemini-2.5-flash-preview-05-20",
+    temperature=0.7,
+    max_tokens=None,
+    timeout=None,
+    max_retries=2
+)
 
 # Bot intents
 intents = discord.Intents.default()
@@ -34,18 +41,44 @@ def summarize_conversation(history):
     
     # PROMPT_2 : 
 
-    prompt = "Summarize the following conversation in a nicely formatted paragraph. Make sure that it is readible with headers all the main points if there are more than one. Under each Header I want bulletpoints of the main points:\n"
+    conversation_text = ""
     for role, message in history:
-        prompt += f"{role}: {message}\n"
-    response = model.generate_content(prompt)
-    return response.text.strip()
+        if role.lower() == "bot":
+            conversation_text += f"AI: {message}\n"
+        else:
+            conversation_text += f"User: {message}\n"
+    
+    conversation_text = conversation_text.strip()
+    
+    prompt_template = f"""
+    You are an expert at summarizing conversations. Your task is to summarize the following conversation.
 
-def query_data(sql_query):
+    ### INSTRUCTION ###
+    Summarize the conversation provided below. Your summary must be nicely formatted.
+    - Start with a short introductory paragraph.
+    - Use descriptive headers for each main topic discussed.
+    - Under each header, use bullet points to list the key details and conclusions.
 
-    # change prompt to not be a hypothetical if correct. Validating will be the next step.
-    prompt = f"show me an SQL query for the following message and assume that whatever tables/rows/column names you decide to use are correct. DO NOT GIVE ME ANY EXPLANATIONS, I ONLY WANT TO SEE THE SQL QUERIES. I DO NOT WANT ANY OPTIONS. JUST CHOOSE AN OPTION AND SEND IT TO ME: {sql_query}\n"
-    response = model.generate_content(prompt)
-    return response.text.strip()
+    ### CONVERSATION LOG ###
+    ---
+    {conversation_text}
+    ---
+
+    ### SUMMARY ###
+    """
+
+    message = [
+        HumanMessage(content=prompt_template)
+    ]
+    response =  model.invoke(message)
+    return response.content.strip()
+
+# def query_data(sql_query):
+
+#     # change prompt to not be a hypothetical if correct. Validating will be the next step.
+#     prompt = f"show me an SQL query for the following message and assume that whatever tables/rows/column names you decide to use are correct. DO NOT GIVE ME ANY EXPLANATIONS, I ONLY WANT TO SEE THE SQL QUERIES. I DO NOT WANT ANY OPTIONS. JUST CHOOSE AN OPTION AND SEND IT TO ME: {sql_query}\n"
+#     response = model.generate_content(prompt)
+#     return response.text.strip()
 
 def search_conversation(history, search_query):
 
@@ -88,11 +121,11 @@ async def on_message(message):  # main handler that runs every time a message is
         await message.channel.send(f"📋 Summary:\n{summary}")
         return
     
-    if user_message.lower().startswith("query: "):
-        sql_query = user_message[7:].strip()
-        query = query_data(sql_query)
-        await message.channel.send(f"👁️‍🗨️ Query:\n{query}")
-        return
+    # if user_message.lower().startswith("query: "):
+    #     sql_query = user_message[7:].strip()
+    #     query = query_data(sql_query)
+    #     await message.channel.send(f"👁️‍🗨️ Query:\n{query}")
+    #     return
 
     if user_message.lower().startswith("search: "):
         search_query = user_message[8:].strip()
@@ -134,8 +167,8 @@ async def on_message(message):  # main handler that runs every time a message is
     full_prompt += "Bot:"
 
     try:
-        response = model.generate_content(full_prompt)
-        bot_reply = response.text.strip()
+        response = model.invoke(full_prompt)
+        bot_reply = response.content.strip()
     except Exception as e:
         await message.channel.send(f"❌ Error: {e}")
         return
