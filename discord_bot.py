@@ -6,7 +6,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
 from langchain.schema import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.vectorstores import FAISS, Chroma
+from langchain_community.vectorstores import FAISS, Chroma, Annoy
 from langchain.chains.retrieval_qa.base import RetrievalQA
 from langchain.embeddings import SentenceTransformerEmbeddings
 import re
@@ -260,7 +260,7 @@ def is_valid_sql(query):
 
     return is_valid
 
-# uses Chroma, FAISS is hard to install on macos - rochan
+# search function
 def search_conversation(history, search_query):
     # turn history into Documents
     docs = [
@@ -272,10 +272,12 @@ def search_conversation(history, search_query):
     splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
     chunks = splitter.split_documents(docs)
 
-    # embed & index in Chroma (or FAISS)
+    # embed & index in vector database
     embeddings = SentenceTransformerEmbeddings(model_name="all-MiniLM-L6-v2")
-    # vectorstore = FAISS.from_documents(chunks, embeddings) # FAISS (difficult on mac)
-    vectorstore = Chroma.from_documents(chunks, embeddings) # Chroma (works on mac)
+
+    # vectorstore = FAISS.from_documents(chunks, embeddings) # FAISS (works on windows, not mac)
+    # vectorstore = Chroma.from_documents(chunks, embeddings) # Chroma (works on mac, not windows)
+    vectorstore = Annoy.from_documents(chunks, embeddings, index_params={"n_trees": 10}) # Annoy
 
     # build a RetrievalQA chain
     qa = RetrievalQA.from_chain_type(
