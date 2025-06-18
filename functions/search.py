@@ -1,6 +1,7 @@
 import os
 from dotenv import load_dotenv
-from langchain_google_genai import ChatGoogleGenerativeAI
+from google import genai
+from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
 from langchain.schema import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS, Chroma, Annoy
@@ -20,6 +21,10 @@ model = ChatGoogleGenerativeAI(
     max_retries=2
 )
 
+embedding_model = GoogleGenerativeAIEmbeddings(
+    model="models/text-embedding-004"
+)
+
 # uses Chroma, FAISS is hard to install on macos - rochan
 def search_conversation(history, search_query):
     # turn history into Documents
@@ -33,10 +38,10 @@ def search_conversation(history, search_query):
     chunks = splitter.split_documents(docs)
 
     # embed & index in Chroma (or FAISS)
-    embeddings = SentenceTransformerEmbeddings(model_name="all-MiniLM-L6-v2")
+    # embeddings = SentenceTransformerEmbeddings(model_name="all-MiniLM-L6-v2")
     # vectorstore = FAISS.from_documents(chunks, embeddings) # FAISS (difficult on mac)
     # vectorstore = Chroma.from_documents(chunks, embeddings) # Chroma (works on mac)
-    vectorstore = Annoy.from_documents(chunks, embeddings, index_params={"n_trees": 10})
+    vectorstore = Annoy.from_documents(chunks, embedding_model, index_params={"n_trees": 10})
 
     # build a RetrievalQA chain
     qa = RetrievalQA.from_chain_type(

@@ -5,6 +5,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage
 import mysql.connector
 from mysql.connector import Error as  MySQLError
+import psycopg2
 
 load_dotenv()
 api_key = os.getenv("GOOGLE_API_KEY")
@@ -24,15 +25,22 @@ table_names = re.findall(
 
 allowed_tables = {name.upper() for name in table_names}
 
-# DB config
-DB_CONFIG = {
-    "host": os.getenv("DB_HOST"),
-    "user": os.getenv("DB_USER"),
-    "password": os.getenv("DB_PASS"),
-    "database": os.getenv("DB_NAME"),
-}
-conn = mysql.connector.connect(**DB_CONFIG)
-cur =  conn.cursor()
+# # DB config
+# DB_CONFIG = {
+#     "host": os.getenv("DB_HOST"),
+#     "user": os.getenv("DB_USER"),
+#     "password": os.getenv("DB_PASS"),
+#     "database": os.getenv("DB_NAME"),
+# }
+# conn = mysql.connector.connect(**DB_CONFIG)
+# cur =  conn.cursor()
+
+load_dotenv()
+db_host = os.getenv("DB_HOST")
+db_port = os.getenv("DB_PORT")
+db_name = os.getenv("DB_NAME")
+db_user = os.getenv("DB_USER")
+db_password = os.getenv("DB_PASS")
 
 # gemini
 model = ChatGoogleGenerativeAI(
@@ -165,15 +173,28 @@ def format_table(table):
 def query_data(user_query):
     sql_query = generate_query(user_query)
     if not sql_query:
-        return "❌ Unable to generate a valid SQL query after multiple attempts."
+        return ["❌ Unable to generate a valid SQL query after multiple attempts."]
     
-    print("Generated SQL Query:", sql_query)
-    cur.execute(sql_query)
-    rows = cur.fetchall()
-    if not rows:
-        return "🔍 No results found."
+    try:
+        conn = psycopg2.connect(
+            host=db_host,
+            port=db_port,
+            database=db_name,
+            user=db_user,
+            password=db_password
+        )
+        cur = conn.cursor()
+        cur.execute(sql_query)
+        rows = cur.fetchall()
+
+        cols = [desc[0] for desc in cur.description]
+
+        cur.close()
+        conn.close()
     
-    cols = [desc[0] for desc in cur.description]
+    except Exception as e:
+        return [f"❌ Error executing SQL query: {str(e)}"]
+
     lines = [" | ".join(cols)]
     lines += [" | ".join(map(str, row)) for row in rows]
     table = "\n".join(lines)
