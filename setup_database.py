@@ -33,10 +33,10 @@ def main():
     cur = conn.cursor()
 
     # ── 4) Load & execute your schema SQL ─────────────────────────────
-    with open("schema_test.sql", "r") as f:
+    with open("./database/schema_test.sql", "r") as f:
         schema_sql = f.read()
 
-    with open("schema.txt", "w") as out:
+    with open("./database/schema.txt", "w") as out:
         # ensure each CREATE TABLE ends up on its own block
         for stmt in schema_sql.split(';'):
             stmt = stmt.strip()
