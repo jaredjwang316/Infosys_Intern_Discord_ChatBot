@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.schema import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.vectorstores import FAISS, Chroma
+from langchain_community.vectorstores import FAISS, Chroma, Annoy
 from langchain.chains.retrieval_qa.base import RetrievalQA
 from langchain.embeddings import SentenceTransformerEmbeddings
 
@@ -35,7 +35,8 @@ def search_conversation(history, search_query):
     # embed & index in Chroma (or FAISS)
     embeddings = SentenceTransformerEmbeddings(model_name="all-MiniLM-L6-v2")
     # vectorstore = FAISS.from_documents(chunks, embeddings) # FAISS (difficult on mac)
-    vectorstore = Chroma.from_documents(chunks, embeddings) # Chroma (works on mac)
+    # vectorstore = Chroma.from_documents(chunks, embeddings) # Chroma (works on mac)
+    vectorstore = Annoy.from_documents(chunks, embeddings, index_params={"n_trees": 10})
 
     # build a RetrievalQA chain
     qa = RetrievalQA.from_chain_type(
@@ -52,4 +53,4 @@ def search_conversation(history, search_query):
     )
 
     # return qa.run(prompt) # deprecated
-    return qa.invoke(prompt)
+    return qa.invoke(prompt)['result']
