@@ -36,11 +36,11 @@ allowed_tables = {name.upper() for name in table_names}
 # cur =  conn.cursor()
 
 load_dotenv()
-db_host = os.getenv("DB_HOST")
-db_port = os.getenv("DB_PORT")
-db_name = os.getenv("DB_NAME")
-db_user = os.getenv("DB_USER")
-db_password = os.getenv("DB_PASS")
+db_host = os.getenv("PG_DB_HOST")
+db_port = os.getenv("PG_DB_PORT")
+db_name = os.getenv("PG_DB_NAME")
+db_user = os.getenv("PG_DB_USER")
+db_password = os.getenv("PG_DB_PASS")
 
 # gemini
 model = ChatGoogleGenerativeAI(
