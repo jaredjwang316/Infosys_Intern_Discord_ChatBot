@@ -1,17 +1,11 @@
 import os
-import re
-import discord
 from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
 from langchain.schema import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS, Chroma
 from langchain.chains.retrieval_qa.base import RetrievalQA
 from langchain.embeddings import SentenceTransformerEmbeddings
-import mysql.connector
-from mysql.connector import Error as  MySQLError
-import re
 
 load_dotenv()
 api_key = os.getenv("GOOGLE_API_KEY")
