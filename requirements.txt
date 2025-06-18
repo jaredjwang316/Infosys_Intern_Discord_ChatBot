@@ -8,3 +8,4 @@ langchain-openai==0.3.23
 google-genai==1.20.0
 sentence-transformers==4.1.0
 chromadb==1.0.12
+annoy==1.17.3
