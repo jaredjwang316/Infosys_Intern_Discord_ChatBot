@@ -120,7 +120,7 @@ CREATE TABLE IF NOT EXISTS Project (
     print("✔️ Seeded 10 random Projects.")
 
     # 10) Write schema.txt with raw DDL
-    with open("schema.txt", "w") as f:
+    with open("./database/schema.txt", "w") as f:
         f.write(ddl_employee + "\n")
         f.write(ddl_department + "\n")
         f.write(ddl_project + "\n")
