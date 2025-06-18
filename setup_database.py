@@ -33,7 +33,7 @@ def main():
     cur = conn.cursor()
 
     # ── 4) Load & execute your schema SQL ─────────────────────────────
-    with open("./database/schema_test.sql", "r") as f:
+    with open("./database/Schema_test.sql", "r") as f:
         schema_sql = f.read()
 
     with open("./database/schema.txt", "w") as out:

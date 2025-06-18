@@ -20,7 +20,7 @@ model_name = os.getenv("MODEL_NAME")
 with open("./database/schema.txt", "r") as f:
     SCHEMA_TEXT = f.read()
 
-with open("./database/schema_test.sql", "r") as f:
+with open("./database/Schema_test.sql", "r") as f:
     raw_schema = f.read()
 
 table_names = re.findall(
@@ -66,7 +66,8 @@ def generate_query(sql_query):
     Given the database schema below, generate a SQL query that fulfills the user's request.
     - Ensure the SQL query is syntactically correct.
     - Use appropriate table and column names from the schema.
-    - Do not use comments, markdown, or any other formatting in the SQL query.
+    - Do not use comments, markdown, or any other formatting in the SQL query (i.e. sql```...```).
+    - DO NOT SHOW ID COLUMNS UNLESS SPECIFICALLY REQUESTED.
     
     ### DATABASE SCHEMA ###
     {db_schema}
@@ -83,13 +84,12 @@ def generate_query(sql_query):
     response = model.invoke(message).content.strip()
 
     def strip_query(query):
-        return query.strip().strip('`').strip('"').strip("'").replace('sql', '').replace('SQL', '').strip()
+        return query.replace('sql', '').replace('SQL', '').strip()
     
     response = strip_query(response)
 
     count = 0
     while not is_valid_sql(response):
-        print(response)
         count += 1
         if count > 3:
             return None
@@ -100,7 +100,8 @@ def generate_query(sql_query):
         Given the database schema below, generate a SQL query that fulfills the user's request.
         - Ensure the SQL query is syntactically correct.
         - Use appropriate table and column names from the schema.
-        - Do not use comments, markdown, or any other formatting in the SQL query.
+        - Do not use comments, markdown, or any other formatting in the SQL query (i.e. sql```...```).
+        - DO NOT SHOW ID COLUMNS UNLESS SPECIFICALLY REQUESTED.
 
         ### DATABASE SCHEMA ###
         {db_schema}
@@ -173,6 +174,7 @@ def query_data(user_query):
     if not sql_query:
         return "❌ Unable to generate a valid SQL query after multiple attempts."
     
+    print("Generated SQL Query:", sql_query)
     cur.execute(sql_query)
     rows = cur.fetchall()
     if not rows:

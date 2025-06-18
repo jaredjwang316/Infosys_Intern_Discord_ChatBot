@@ -102,6 +102,8 @@ async def on_message(message):
         user_query = user_message[7:].strip()
         texts = query_data(user_query)
         for text in texts:
+            if not text.strip():
+                continue
             await message.channel.send(text)
         return
 
