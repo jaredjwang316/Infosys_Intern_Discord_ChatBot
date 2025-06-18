@@ -83,6 +83,8 @@ def generate_query(sql_query):
 
     count = 0
     while not is_valid_sql(response):
+        print(response)
+        
         count += 1
         if count > 3:
             return None
@@ -165,13 +167,13 @@ def format_table(table):
 def query_data(user_query):
     sql_query = generate_query(user_query)
     if not sql_query:
-        return "❌ Unable to generate a valid SQL query after multiple attempts."
+        return ["❌ Unable to generate a valid SQL query after multiple attempts."]
     
     print("Generated SQL Query:", sql_query)
     cur.execute(sql_query)
     rows = cur.fetchall()
     if not rows:
-        return "🔍 No results found."
+        return ["🔍 No results found."]
     
     cols = [desc[0] for desc in cur.description]
     lines = [" | ".join(cols)]

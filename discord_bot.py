@@ -1,5 +1,4 @@
 import os
-import re
 import discord
 from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI
