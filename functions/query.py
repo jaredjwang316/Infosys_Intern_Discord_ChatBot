@@ -59,6 +59,7 @@ def generate_query(sql_query):
     Given the database schema below, generate a SQL query that fulfills the user's request.
     - Ensure the SQL query is syntactically correct.
     - Use appropriate table and column names from the schema.
+    - If the request is ambiguous (such as first name only queries when the database has only a name column), modify the query to search for the ambiguity (e.g., use LIKE for partial matches) and proceed.
     - Do not use comments, markdown, or any other formatting in the SQL query (i.e. sql```...```).
     - DO NOT SHOW ID COLUMNS UNLESS SPECIFICALLY REQUESTED.
     
@@ -84,7 +85,7 @@ def generate_query(sql_query):
     count = 0
     while not is_valid_sql(response):
         print(response)
-        
+
         count += 1
         if count > 3:
             return None
@@ -95,6 +96,7 @@ def generate_query(sql_query):
         Given the database schema below, generate a SQL query that fulfills the user's request.
         - Ensure the SQL query is syntactically correct.
         - Use appropriate table and column names from the schema.
+        - If the request is ambiguous (such as first name only queries when the database has only a name column), modify the query to search for the ambiguity (e.g., use LIKE for partial matches) and proceed.
         - Do not use comments, markdown, or any other formatting in the SQL query (i.e. sql```...```).
         - DO NOT SHOW ID COLUMNS UNLESS SPECIFICALLY REQUESTED.
 
