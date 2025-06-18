@@ -21,6 +21,19 @@ discord_token = os.getenv("DISCORD_BOT_TOKEN")
 with open("schema.txt", "r") as f:
     SCHEMA_TEXT = f.read()
 
+with open("schema_test.sql", "r") as f:
+    raw_schema = f.read()
+
+table_names = re.findall(
+   r"CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?`?([A-Za-z0-9_]+)`?",
+   raw_schema,
+   flags = re.IGNORECASE
+)
+
+allowed_tables = {name.upper() for name in table_names}
+
+
+
 # DB config
 DB_CONFIG = {
     "host": os.getenv("DB_HOST"),
@@ -165,9 +178,7 @@ def is_valid_sql(query):
 
     cleaned_text = query.upper().strip()
     blacklisted_sql_keywords = ["INSERT", "UPDATE", "DELETE", "DROP", "ALTER", "CREATE", "TRUNCATE", "GRANT", "REVOKE"]
-    allowed_table_names = ["EMPLOYEES", "CLIENTS", "PROJECTS", 
-                           "EMPLOYEE_PROJECT_ASSIGNMENTS", "SKILLS", "EMPLOYEE_SKILLS", "DEPARTMENT", "PROJECT", "EMPLOYEE"]
-    # allowed_table_names = ["EMPLOYEE", "DEPARTMENT", "PROJECT"]
+    allowed_table_names = list(allowed_tables)
     
     if not cleaned_text.startswith("SELECT"):
         print("Does not start with SELECT")
@@ -185,11 +196,15 @@ def is_valid_sql(query):
     from_tables = re.findall(from_pattern, cleaned_text)
     join_tables = re.findall(join_pattern, cleaned_text)
 
-    extracted_tables = {table[1].upper() for table in from_tables + join_tables}
-    if not extracted_tables.issubset(set(allowed_table_names)):
-        print("References disallowed tables")
-        return False
-    
+    from_tables = [m[1] for m in re.findall(from_pattern, cleaned_text)]
+    join_tables = [m[1] for m in re.findall(join_pattern, cleaned_text)]
+
+    # ensure every referenced table is in our schema
+    for tbl in from_tables + join_tables:
+        if tbl.upper() not in allowed_tables:
+            print(f"Table '{tbl}' not in schema")
+            return False
+
     return True
 
 # uses Chroma, FAISS is hard to install on macos - rochan
@@ -252,7 +267,7 @@ def format_table(table):
 
 @client.event
 async def on_ready():
-    print(f"✅ Logged in as {client.user}")
+    print(f"Logged in as {client.user}")
 
 @client.event
 async def on_message(message):
@@ -287,8 +302,6 @@ async def on_message(message):
     if user_message.lower().startswith("query: "):
         sql_query = user_message[7:].strip()
         query, result = query_data(sql_query)
-
-        print(query)
 
         if not result:
             await message.channel.send(query)
@@ -345,9 +358,6 @@ async def on_message(message):
     full_prompt = "Do not give me super long responses or bullet points unless asked to do so.\n"
     for role, msg in user_chat_history[user_id]:
         full_prompt += f"{role}: {msg}\n"
-    full_prompt += "Bot:"
-
-    print(full_prompt) # just to test
 
     try:
         response = model.invoke(full_prompt)
