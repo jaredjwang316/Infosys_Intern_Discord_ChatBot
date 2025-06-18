@@ -19,22 +19,9 @@ from functions.summary import summarize_conversation
 from functions.search import search_conversation
 
 load_dotenv()
-api_key = os.getenv("GOOGLE_API_KEY")
+api_key       = os.getenv("GOOGLE_API_KEY")
 discord_token = os.getenv("DISCORD_BOT_TOKEN")
 model_name = os.getenv("MODEL_NAME")
-
-with open("./database/schema.txt", "r") as f:
-    SCHEMA_TEXT = f.read()
-
-# DB config
-DB_CONFIG = {
-    "host": os.getenv("DB_HOST"),
-    "user": os.getenv("DB_USER"),
-    "password": os.getenv("DB_PASS"),
-    "database": os.getenv("DB_NAME"),
-}
-conn = mysql.connector.connect(**DB_CONFIG)
-cur =  conn.cursor()
 
 # Check keys
 if not api_key or not discord_token:
@@ -50,7 +37,7 @@ model = ChatGoogleGenerativeAI(
     max_retries=2
 )
 
-# Bot intents
+# ── Discord client setup ──────────────────────────────────────────────────────
 intents = discord.Intents.default()
 intents.message_content = True
 client = discord.Client(intents=intents)
@@ -79,27 +66,23 @@ def split_response(response):
 
 @client.event
 async def on_ready():
-    print(f"✅ Logged in as {client.user}")
+    print(f"Logged in as {client.user}")
 
 @client.event
 async def on_message(message):
     if message.author == client.user:
         return
 
-    user_id = message.author.id
-    user_name = message.author
+    user_id      = message.author.id
+    user_name    = message.author.mention
     user_message = message.content.strip()
-    channel_id = message.channel.id
+    channel_id   = message.channel.id
 
-    # Init chat history
-    if user_id not in user_chat_history:
-        user_chat_history[user_id] = []
+    # Initialize histories
+    user_chat_history.setdefault(user_id, [])
+    total_chat_history.setdefault(channel_id, [])
 
-    if channel_id not in total_chat_history:
-        total_chat_history[channel_id] = []
-
-
-    # Handle special commands
+    # ---- Special commands -----------------------
     if user_message.lower() == "exit":
         user_chat_history[user_id] = []
         await message.channel.send("🧠 Memory cleared!")
@@ -113,54 +96,46 @@ async def on_message(message):
             for part in response[1:]:
                 await message.channel.send(part)
         return
-    
+
+    # ---- NEW /query handler ---------------------
     if user_message.lower().startswith("query: "):
         user_query = user_message[7:].strip()
         texts = query_data(user_query)
         for text in texts:
+            if not text.strip():
+                continue
             await message.channel.send(text)
         return
 
+    # ---- Existing /search handler ---------------
     if user_message.lower().startswith("search: "):
-        search_query = user_message[8:].strip()
-        search_result = search_conversation(user_chat_history[user_id], search_query)
-        await message.channel.send(f"🔎 Search:\n{search_result}")
+        terms = user_message[len("search: "):].strip()
+        result = search_conversation(user_chat_history[user_id], terms)
+        await message.channel.send(f"🔎 Search:\n{result}")
         return
-    
 
-
-    # TESTING SECTION START ---------------------------------------------------------------------------------------------------------
-    # anything here will run when you say "test" to the bot in a discord chat
+    # ---- Testing utilities ----------------------
     if user_message.lower() == "test":
-        await message.channel.send(user_id)
-        await message.channel.send(f"{user_name.mention} just sent me a message")
+        await message.channel.send(f"Your ID: {user_id}")
+        await message.channel.send(f"{user_name} just sent me a message")
         return
-    
-    # this will show the current history the chat bot has stored
-    # later make it so that it will show histories for each channel it has stored seperatley
+
     if user_message.lower() == "show_history":
         await message.channel.send(total_chat_history[channel_id])
         return
 
-    #
     if user_message.lower() == "where_am_i":
-        await message.channel.send(message.channel.name)
-        await message.channel.send(message.channel.id)
+        await message.channel.send(f"Channel: {message.channel.name} ({channel_id})")
         return
 
-    # TESTING SECTION END -----------------------------------------------------------------------------------------------------------
-
-    # Update history
-    total_chat_history[channel_id].append((f"{user_name}", user_message))
-    user_chat_history[user_id].append((f"{user_name}", user_message))
+    # ---- Default chat behavior -----------------
+    total_chat_history[channel_id].append((user_name, user_message))
+    user_chat_history[user_id].append((user_name, user_message))
 
     # Build prompt
     full_prompt = "Do not give me super long responses or bullet points unless asked to do so.\n"
     for role, msg in user_chat_history[user_id]:
         full_prompt += f"{role}: {msg}\n"
-    full_prompt += "Bot:"
-
-    print(full_prompt) # just to test
 
     try:
         response = model.invoke(full_prompt)

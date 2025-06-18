@@ -20,6 +20,17 @@ model_name = os.getenv("MODEL_NAME")
 with open("./database/schema.txt", "r") as f:
     SCHEMA_TEXT = f.read()
 
+with open("./database/Schema_test.sql", "r") as f:
+    raw_schema = f.read()
+
+table_names = re.findall(
+   r"CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?`?([A-Za-z0-9_]+)`?",
+   raw_schema,
+   flags = re.IGNORECASE
+)
+
+allowed_tables = {name.upper() for name in table_names}
+
 # DB config
 DB_CONFIG = {
     "host": os.getenv("DB_HOST"),
@@ -55,7 +66,8 @@ def generate_query(sql_query):
     Given the database schema below, generate a SQL query that fulfills the user's request.
     - Ensure the SQL query is syntactically correct.
     - Use appropriate table and column names from the schema.
-    - Do not use comments, markdown, or any other formatting in the SQL query.
+    - Do not use comments, markdown, or any other formatting in the SQL query (i.e. sql```...```).
+    - DO NOT SHOW ID COLUMNS UNLESS SPECIFICALLY REQUESTED.
     
     ### DATABASE SCHEMA ###
     {db_schema}
@@ -72,13 +84,12 @@ def generate_query(sql_query):
     response = model.invoke(message).content.strip()
 
     def strip_query(query):
-        return query.strip().strip('`').strip('"').strip("'").replace('sql', '').replace('SQL', '').strip()
+        return query.replace('sql', '').replace('SQL', '').strip()
     
     response = strip_query(response)
 
     count = 0
     while not is_valid_sql(response):
-        print(response)
         count += 1
         if count > 3:
             return None
@@ -89,7 +100,8 @@ def generate_query(sql_query):
         Given the database schema below, generate a SQL query that fulfills the user's request.
         - Ensure the SQL query is syntactically correct.
         - Use appropriate table and column names from the schema.
-        - Do not use comments, markdown, or any other formatting in the SQL query.
+        - Do not use comments, markdown, or any other formatting in the SQL query (i.e. sql```...```).
+        - DO NOT SHOW ID COLUMNS UNLESS SPECIFICALLY REQUESTED.
 
         ### DATABASE SCHEMA ###
         {db_schema}
@@ -113,9 +125,7 @@ def is_valid_sql(query):
 
     cleaned_text = query.upper().strip()
     blacklisted_sql_keywords = ["INSERT", "UPDATE", "DELETE", "DROP", "ALTER", "CREATE", "TRUNCATE", "GRANT", "REVOKE"]
-    allowed_table_names = ["EMPLOYEES", "CLIENTS", "PROJECTS", 
-                           "EMPLOYEE_PROJECT_ASSIGNMENTS", "SKILLS", "EMPLOYEE_SKILLS", "DEPARTMENT", "PROJECT", "EMPLOYEE"]
-    # allowed_table_names = ["EMPLOYEE", "DEPARTMENT", "PROJECT"]
+    allowed_table_names = list(allowed_tables)
     
     if not cleaned_text.startswith("SELECT"):
         print("Does not start with SELECT")
@@ -130,14 +140,14 @@ def is_valid_sql(query):
     from_pattern = r"\bFROM\s+(`|\")?(\w+)(`|\")?"
     join_pattern = r"\bJOIN\s+(`|\")?(\w+)(`|\")?"
 
-    from_tables = re.findall(from_pattern, cleaned_text)
-    join_tables = re.findall(join_pattern, cleaned_text)
+    from_tables = [m[1] for m in re.findall(from_pattern, cleaned_text)]
+    join_tables = [m[1] for m in re.findall(join_pattern, cleaned_text)]
 
-    extracted_tables = {table[1].upper() for table in from_tables + join_tables}
-    if not extracted_tables.issubset(set(allowed_table_names)):
-        print("References disallowed tables")
-        return False
-    
+    for tbl in from_tables + join_tables:
+        if tbl.upper() not in allowed_tables:
+            print(f"Table '{tbl}' not in schema")
+            return False
+
     return True
 
 def format_table(table):
@@ -164,6 +174,7 @@ def query_data(user_query):
     if not sql_query:
         return "❌ Unable to generate a valid SQL query after multiple attempts."
     
+    print("Generated SQL Query:", sql_query)
     cur.execute(sql_query)
     rows = cur.fetchall()
     if not rows:
