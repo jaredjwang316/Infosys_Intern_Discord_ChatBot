@@ -54,7 +54,7 @@ CREATE TABLE IF NOT EXISTS employee_skills (
 
 CREATE EXTENSION IF NOT EXISTS vector;
 
-CREATE TABLE chat_embeddings (
+CREATE TABLE IF NOT EXISTS chat_embeddings (
     id SERIAL PRIMARY KEY,
     role TEXT,                         -- user or bot
     content TEXT,                      -- the actual message text

@@ -3,13 +3,19 @@ from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
 from langchain.schema import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.vectorstores import FAISS, Chroma, Annoy
+from langchain.vectorstores.pgvector import PGVector
 from langchain.chains.retrieval_qa.base import RetrievalQA
 from langchain.embeddings import SentenceTransformerEmbeddings
 
 load_dotenv()
 api_key = os.getenv("GOOGLE_API_KEY")
 model_name = os.getenv("MODEL_NAME")
+
+db_host = os.getenv("DB_HOST")
+db_port = os.getenv("DB_PORT")
+db_name = os.getenv("DB_NAME")
+db_user = os.getenv("DB_USER")
+db_password = os.getenv("DB_PASSWORD")
 
 # gemini
 model = ChatGoogleGenerativeAI(
@@ -23,6 +29,9 @@ model = ChatGoogleGenerativeAI(
 embedding_model = GoogleGenerativeAIEmbeddings(
     model="models/text-embedding-004"
 )
+
+# Connection string for pgvector
+connection_string = f"postgresql+psycopg2://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
 
 # uses Chroma, FAISS is hard to install on macos - rochan
 def search_conversation(history, search_query):
