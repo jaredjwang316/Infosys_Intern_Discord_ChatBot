@@ -194,7 +194,12 @@ async def on_message(message):
         user_chat_history[user_id].append((user_name, user_real_message, now))
 
         # Build prompt
-        full_prompt = "Do not give me super long responses or bullet points unless asked to do so.\n"
+        full_prompt = f"""
+        Be Formal with your replies. This is a work environment.
+        I do NOT want any bullet points when you respond to me unless I ask you for them.
+        These replies MUST be short as to not clutter the text chat.
+        All replies must be readable. Now respond to this given the previous instructions:\n
+        """
         for role, msg, _ in total_chat_history[channel_id]:
             full_prompt += f"{role}: {msg}\n"
 
