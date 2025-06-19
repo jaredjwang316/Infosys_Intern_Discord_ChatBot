@@ -17,22 +17,23 @@ model = ChatGoogleGenerativeAI(
 )
 
 def summarize_conversation(history):
-    # prompt will only be applied when looking at the entire conversation
-
-    # PROMT_1 : headers with bulletpoints
-    # Summarize the following conversation in a nicely formatted paragraph. Make sure that it is readible with headers all the main points if there are more than one. Under each Header I want bulletpoints of the main points:
-    
-    # PROMPT_2 : 
-
+    # Accepts history as list of (role, message, timestamp) or (role, message)
     conversation_text = ""
-    for role, message in history:
-        if role.lower() == "bot":
-            conversation_text += f"AI: {message}\n"
+    for entry in history:
+        if len(entry) == 4:
+            role, message, timestamp, embedding = entry
+            time_str = timestamp.strftime('%Y-%m-%d %H:%M') if hasattr(timestamp, 'strftime') else str(timestamp)
+            if role.lower() == "bot":
+                conversation_text += f"AI [{time_str}]: {message}\n"
+            else:
+                conversation_text += f"User [{time_str}]: {message}\n"
         else:
-            conversation_text += f"User: {message}\n"
-    
+            role, message = entry
+            if role.lower() == "bot":
+                conversation_text += f"AI: {message}\n"
+            else:
+                conversation_text += f"User: {message}\n"
     conversation_text = conversation_text.strip()
-    
     prompt_template = f"""
     You are an expert at summarizing conversations. Your task is to summarize the following conversation.
 
@@ -49,7 +50,6 @@ def summarize_conversation(history):
 
     ### SUMMARY ###
     """
-
     message = [
         HumanMessage(content=prompt_template)
     ]

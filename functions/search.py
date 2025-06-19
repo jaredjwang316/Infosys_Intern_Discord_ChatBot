@@ -3,9 +3,8 @@ from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
 from langchain.schema import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.vectorstores import FAISS, Chroma, Annoy
+from langchain_community.vectorstores import FAISS, Chroma, Annoy, InMemoryVectorStore
 from langchain.chains.retrieval_qa.base import RetrievalQA
-from langchain.embeddings import SentenceTransformerEmbeddings
 
 load_dotenv()
 api_key = os.getenv("GOOGLE_API_KEY")
@@ -25,24 +24,12 @@ embedding_model = GoogleGenerativeAIEmbeddings(
 )
 
 # uses Chroma, FAISS is hard to install on macos - rochan
-def search_conversation(history, search_query):
-    # turn history into Documents
-    docs = [
-        Document(page_content=message, metadata={"role": role})
-        for role, message in history
-    ]
-
-    # chunk into ~1000-char slices with 200-char overlap
-    splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
-    chunks = splitter.split_documents(docs)
-
-    vectorstore = Annoy.from_documents(chunks, embedding_model, index_params={"n_trees": 10})
-
+def search_conversation(vectorstore, search_query):
     # build a RetrievalQA chain
     qa = RetrievalQA.from_chain_type(
         llm=model,
-        chain_type="map_reduce", # robust for aggregation
-        retriever=vectorstore.as_retriever(search_kwargs={"k": 5}), # top-5 chunks
+        chain_type="map_reduce",
+        retriever=vectorstore.as_retriever(),
         return_source_documents=False
     )
 
@@ -52,5 +39,4 @@ def search_conversation(history, search_query):
         "from the conversation, and present it as concise bullet points."
     )
 
-    # return qa.run(prompt) # deprecated
     return qa.invoke(prompt)['result']
