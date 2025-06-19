@@ -15,9 +15,6 @@ This Discord chatbot integrates with MySQL databases and uses advanced AI featur
 
 ### Core Files
 
-## main.py
-This file is a dummy file that was used to create a chat bot within the console. This file is not the one meant to be run, but only if you need to test something quickly within the console. It provides a simple command-line interface for testing Gemini AI responses.
-
 ## discord_bot.py
 This is the main Discord bot file that handles all Discord interactions. It contains various tools and commands that can be triggered by specific keywords and provides:
 - Message handling with user and channel-specific memory
