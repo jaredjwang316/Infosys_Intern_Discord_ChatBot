@@ -70,6 +70,14 @@ def split_response(response, line_split=True):
 @client.event
 async def on_ready():
     print(f"Logged in as {client.user}")
+    # Send a message to all text channels the bot can access
+    for guild in client.guilds:
+        for channel in guild.text_channels:
+            try:
+                await channel.send("🤖 I am up and ready!\n For a full list of commands type: `help`")
+                break  # Only send to the first accessible text channel per guild
+            except Exception:
+                continue
 
 @client.event
 async def on_message(message):
@@ -121,6 +129,7 @@ async def on_message(message):
     if user_message.lower() == "help":
         await message.channel.send(
             "# General Help:\n"
+            "Use `ask: <your question>` to ask the bot a question.\n"
             "Use `summary` to get a summary of the conversation.\n"
             "Use `summary: last X [minute|hour|day|week|month|year]` for a time-limited summary.\n"
             "Use `search: <terms>` to search for terms in the conversation.\n"
@@ -217,7 +226,12 @@ async def on_message(message):
         user_chat_history[user_id].append((user_name, user_real_message, now, embedding_model.embed_query(user_real_message)))
 
         # Build prompt
-        full_prompt = "Do not give me super long responses or bullet points unless asked to do so.\n"
+        full_prompt = f"""
+        Be Formal with your replies. This is a work environment.
+        I do NOT want any bullet points when you respond to me unless I ask you for them.
+        These replies MUST be short as to not clutter the text chat.
+        All replies must be readable. Now respond to this given the previous instructions:\n
+        """
         for role, msg, _, _ in total_chat_history[channel_id]:
             full_prompt += f"{role}: {msg}\n"
 
@@ -235,5 +249,7 @@ async def on_message(message):
         total_chat_embeddings[channel_id].add_documents([Document(page_content=bot_reply, metadata={"user": "Bot", "timestamp": now})])
         user_chat_history[user_id].append(("Bot", bot_reply, now, embedding_model.embed_query(bot_reply)))
         return
+    else:
+        total_chat_history[channel_id].append((user_name, user_message, now))
 
 client.run(discord_token)
