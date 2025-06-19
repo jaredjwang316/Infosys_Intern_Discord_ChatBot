@@ -59,6 +59,14 @@ def split_response(response):
 @client.event
 async def on_ready():
     print(f"Logged in as {client.user}")
+    # Send a message to all text channels the bot can access
+    for guild in client.guilds:
+        for channel in guild.text_channels:
+            try:
+                await channel.send("🤖 I am up and ready!\n For a full list of commands type: `help`")
+                break  # Only send to the first accessible text channel per guild
+            except Exception:
+                continue
 
 @client.event
 async def on_message(message):
@@ -107,6 +115,7 @@ async def on_message(message):
     if user_message.lower() == "help":
         await message.channel.send(
             "# General Help:\n"
+            "Use `ask: <your question>` to ask the bot a question.\n"
             "Use `summary` to get a summary of the conversation.\n"
             "Use `summary: last X [minute|hour|day|week|month|year]` for a time-limited summary.\n"
             "Use `search: <terms>` to search for terms in the conversation.\n"
@@ -185,7 +194,8 @@ async def on_message(message):
         await message.channel.send("❌🕒 Memory cleared and generated without time!")
         return
 
-    total_chat_history[channel_id].append((user_name, user_message, now))
+
+    
 
     # Only allow default chat if message starts with 'ask: '
     if user_message.lower().startswith("ask: "):
@@ -216,5 +226,7 @@ async def on_message(message):
         total_chat_history[channel_id].append(("Bot", bot_reply, now))
         user_chat_history[user_id].append(("Bot", bot_reply, now))
         return
+    else:
+        total_chat_history[channel_id].append((user_name, user_message, now))
 
 client.run(discord_token)
