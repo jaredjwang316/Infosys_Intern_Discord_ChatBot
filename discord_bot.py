@@ -73,14 +73,15 @@ async def on_message(message):
     user_chat_history.setdefault(user_id, [])
     total_chat_history.setdefault(channel_id, [])
 
-    if user_message.lower() == "quit":
-        exit()
-
     # ---- Special commands -----------------------
-    if user_message.lower() == "exit":
-        user_chat_history[user_id] = []
+    if user_message.lower() == "clear":
+        total_chat_history[channel_id] = []
         await message.channel.send("🧠 Memory cleared!")
         return
+    
+    if user_message.lower() == "exit":
+        await message.channel.send("💀 Goodbye!")
+        exit()
 
     if user_message.lower() == "summary":
         summary = summarize_conversation(user_chat_history[user_id])
