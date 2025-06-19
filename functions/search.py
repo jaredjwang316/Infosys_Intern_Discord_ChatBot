@@ -5,7 +5,6 @@ from langchain.schema import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS, Chroma, Annoy
 from langchain.chains.retrieval_qa.base import RetrievalQA
-from langchain.embeddings import SentenceTransformerEmbeddings
 
 load_dotenv()
 api_key = os.getenv("GOOGLE_API_KEY")

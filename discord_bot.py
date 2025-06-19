@@ -34,7 +34,7 @@ intents = discord.Intents.default()
 intents.message_content = True
 client = discord.Client(intents=intents)
 
-# Memory: {user_id: [(role, message)]}
+# Memory: {user_id: [(role, message, timestamp)]}
 user_chat_history = {}
 total_chat_history = {}
 
