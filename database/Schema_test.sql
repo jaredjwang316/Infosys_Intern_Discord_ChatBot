@@ -51,14 +51,3 @@ CREATE TABLE IF NOT EXISTS employee_skills (
     FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE,
     FOREIGN KEY (skill_id)    REFERENCES skills(id)    ON DELETE CASCADE
 );
-
--- Enable pgvector
-CREATE EXTENSION IF NOT EXISTS vector;
-
--- Table to store chat chunks + embeddings
-CREATE TABLE IF NOT EXISTS chat_chunks (
-    id SERIAL PRIMARY KEY,
-    role TEXT,
-    content TEXT,
-    embedding VECTOR(768) -- or 1536 if using OpenAI
-);
