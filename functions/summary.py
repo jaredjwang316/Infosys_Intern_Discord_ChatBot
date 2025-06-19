@@ -17,19 +17,19 @@ model = ChatGoogleGenerativeAI(
 )
 
 def summarize_conversation(history):
-    # Accepts history as list of (role, message, timestamp) or (role, message)
+    # Accepts history as list of (role, message, timestamp) or (role, message, timestamp, ...)
     conversation_text = ""
     for entry in history:
-        if len(entry) == 4:
-            role, message, timestamp, embedding = entry
+        if len(entry) >= 3:
+            role, message, timestamp = entry[:3]
             time_str = timestamp.strftime('%Y-%m-%d %H:%M') if hasattr(timestamp, 'strftime') else str(timestamp)
-            if role.lower() == "bot":
+            if str(role).lower() == "bot":
                 conversation_text += f"AI [{time_str}]: {message}\n"
             else:
                 conversation_text += f"User [{time_str}]: {message}\n"
-        else:
+        elif len(entry) == 2:
             role, message = entry
-            if role.lower() == "bot":
+            if str(role).lower() == "bot":
                 conversation_text += f"AI: {message}\n"
             else:
                 conversation_text += f"User: {message}\n"
