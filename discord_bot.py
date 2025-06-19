@@ -215,9 +215,6 @@ async def on_message(message):
     #     await message.channel.send("❌🕒 Memory cleared and generated without time!")
     #     return
 
-    total_chat_history[channel_id].append((user_name, user_message, now))
-    total_chat_embeddings[channel_id].add_documents([Document(page_content=user_message, metadata={"user": user_name, "timestamp": now})])
-
     # Only allow default chat if message starts with 'ask: '
     if user_message.lower().startswith("ask: "):
         user_real_message = user_message[5:].strip()
@@ -251,5 +248,6 @@ async def on_message(message):
         return
     else:
         total_chat_history[channel_id].append((user_name, user_message, now))
+        total_chat_embeddings[channel_id].add_documents([Document(page_content=user_message, metadata={"user": user_name, "timestamp": now})])
 
 client.run(discord_token)

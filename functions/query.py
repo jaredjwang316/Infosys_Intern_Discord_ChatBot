@@ -5,6 +5,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage
 import mysql.connector
 from mysql.connector import Error as  MySQLError
+import sqlalchemy
 
 load_dotenv()
 api_key = os.getenv("GOOGLE_API_KEY")
