@@ -26,16 +26,27 @@ embedding_model = GoogleGenerativeAIEmbeddings(
 
 # uses Chroma, FAISS is hard to install on macos - rochan
 def search_conversation(history, search_query):
-    # turn history into Documents
-    docs = [
-        Document(page_content=message, metadata={"role": role})
-        for role, message in history
-    ]
+    # turn history into Documents, supporting (role, message, timestamp) or (role, message)
+    docs = []
+    for entry in history:
+        if len(entry) == 3:
+            role, message, timestamp = entry
+            time_str = timestamp.strftime('%Y-%m-%d %H:%M') if hasattr(timestamp, 'strftime') else str(timestamp)
+            content = f"[{time_str}] {role}: {message}"
+        else: # RAWR bro
+            role, message = entry
+            content = f"{role}: {message}"
+        docs.append(Document(page_content=content, metadata={"role": role}))
 
     # chunk into ~1000-char slices with 200-char overlap
     splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
     chunks = splitter.split_documents(docs)
 
+    # embed & index in Chroma (or FAISS)
+    # embeddings = SentenceTransformerEmbeddings(model_name="all-MiniLM-L6-v2")
+    # vectorstore = FAISS.from_documents(chunks, embeddings) # FAISS (difficult on mac)
+    # vectorstore = Chroma.from_documents(chunks, embeddings) # Chroma (works on mac)
+    # vectorstore = Annoy.from_documents(chunks, embeddings, index_params={"n_trees": 10})
     vectorstore = Annoy.from_documents(chunks, embedding_model, index_params={"n_trees": 10})
 
     # build a RetrievalQA chain
@@ -52,5 +63,4 @@ def search_conversation(history, search_query):
         "from the conversation, and present it as concise bullet points."
     )
 
-    # return qa.run(prompt) # deprecated
     return qa.invoke(prompt)['result']
