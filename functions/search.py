@@ -1,13 +1,11 @@
 import os
 from dotenv import load_dotenv
-# from google import genai
 from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
 from langchain.schema import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-# from langchain_community.vectorstores import FAISS, Chroma, Annoy
+from langchain_community.vectorstores import FAISS, Chroma, Annoy
 from langchain.chains.retrieval_qa.base import RetrievalQA
 from langchain.embeddings import SentenceTransformerEmbeddings
-from langchain_core.vectorstores import InMemoryVectorStore
 
 load_dotenv()
 api_key = os.getenv("GOOGLE_API_KEY")
@@ -38,12 +36,10 @@ def search_conversation(history, search_query):
     splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
     chunks = splitter.split_documents(docs)
 
-    # embed & index in Chroma (or FAISS)
-    # embeddings = SentenceTransformerEmbeddings(model_name="all-MiniLM-L6-v2")
-    # vectorstore = FAISS.from_documents(chunks, embeddings) # FAISS (difficult on mac)
-    # vectorstore = Chroma.from_documents(chunks, embeddings) # Chroma (works on mac)
-    # vectorstore = Annoy.from_documents(chunks, embedding_model, index_params={"n_trees": 10})
-    vectorstore = InMemoryVectorStore.from_documents(chunks, embedding_model) # In-memory (simple, but not persistent)
+    #Each chunk is embedded into a vector using Gemini’s embedding model
+    #The resulting vectors are stored in a local vector index using Annoy (a fast similarity search library)
+    #This turns text into math, allowing us to search by meaning instead of just keywords.
+    vectorstore = Annoy.from_documents(chunks, embedding_model, index_params={"n_trees": 10})
 
     # build a RetrievalQA chain
     qa = RetrievalQA.from_chain_type(
@@ -53,11 +49,11 @@ def search_conversation(history, search_query):
         return_source_documents=False
     )
 
-    # run
     prompt = (
         f"Please gather *all* the information related to “{search_query}” "
         "from the conversation, and present it as concise bullet points."
     )
 
     # return qa.run(prompt) # deprecated
+    #This runs the chain and returns just the final Gemini response
     return qa.invoke(prompt)['result']
