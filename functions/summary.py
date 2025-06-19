@@ -20,8 +20,8 @@ def summarize_conversation(history):
     # Accepts history as list of (role, message, timestamp) or (role, message)
     conversation_text = ""
     for entry in history:
-        if len(entry) == 3:
-            role, message, timestamp = entry
+        if len(entry) == 4:
+            role, message, timestamp, embedding = entry
             time_str = timestamp.strftime('%Y-%m-%d %H:%M') if hasattr(timestamp, 'strftime') else str(timestamp)
             if role.lower() == "bot":
                 conversation_text += f"AI [{time_str}]: {message}\n"
