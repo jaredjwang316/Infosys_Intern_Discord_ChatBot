@@ -42,6 +42,7 @@ client = discord.Client(intents=intents)
 user_chat_history = {}
 total_chat_history = {}
 total_chat_embeddings = {}
+cached_chat_history = {}
 
 def split_response(response, line_split=True):
     max_length = 1900
@@ -94,6 +95,7 @@ async def on_message(message):
     user_chat_history.setdefault(user_id, [])
     total_chat_history.setdefault(channel_id, [])
     total_chat_embeddings.setdefault(channel_id, InMemoryVectorStore(embedding=embedding_model))
+    cached_chat_history.setdefault(channel_id, [])
 
     # ---- Special commands -----------------------
     if user_message.lower() == "clear":
@@ -110,6 +112,7 @@ async def on_message(message):
     if summary_match:
         total_chat_history[channel_id].append((user_name, user_message, now))
         total_chat_embeddings[channel_id].add_documents([Document(page_content=user_message, metadata={"user": user_name, "timestamp": now})])
+        cached_chat_history[channel_id].append((user_name, user_message, now))
         num = int(summary_match.group(1))
         unit = summary_match.group(2)
         delta_args = {f"{unit}s": num}
@@ -123,6 +126,7 @@ async def on_message(message):
                 await message.channel.send(part)
         total_chat_history[channel_id].append(("Bot", summary, now))
         total_chat_embeddings[channel_id].add_documents([Document(page_content=summary, metadata={"user": "Bot", "timestamp": now})])
+        cached_chat_history[channel_id].append(("Bot", summary, now))
         return
 
     # ---- Help command --------------------------
@@ -150,6 +154,7 @@ async def on_message(message):
     if user_message.lower() == "summary":
         total_chat_history[channel_id].append((user_name, user_message, now))
         total_chat_embeddings[channel_id].add_documents([Document(page_content=user_message, metadata={"user": user_name, "timestamp": now})])
+        cached_chat_history[channel_id].append((user_name, user_message, now))
         # summary = summarize_conversation(user_chat_history[user_id])
         summary = summarize_conversation(total_chat_history[channel_id])
         response = split_response(summary)
@@ -159,12 +164,14 @@ async def on_message(message):
                 await message.channel.send(part)
         total_chat_history[channel_id].append(("Bot", summary, now))
         total_chat_embeddings[channel_id].add_documents([Document(page_content=summary, metadata={"user": "Bot", "timestamp": now})])
+        cached_chat_history[channel_id].append(("Bot", summary, now))
         return
 
     # ---- NEW /query handler ---------------------
     if user_message.lower().startswith("query: "):
         total_chat_history[channel_id].append((user_name, user_message, now))
         total_chat_embeddings[channel_id].add_documents([Document(page_content=user_message, metadata={"user": user_name, "timestamp": now})])
+        cached_chat_history[channel_id].append((user_name, user_message, now))
         user_query = user_message[7:].strip()
         texts = query_data(user_query)
         for text in texts:
@@ -173,17 +180,21 @@ async def on_message(message):
             await message.channel.send(text)
         total_chat_history[channel_id].append(("Bot", texts, now))
         total_chat_embeddings[channel_id].add_documents([Document(page_content=str(texts), metadata={"user": "Bot", "timestamp": now})])
+        cached_chat_history[channel_id].append(("Bot", str(texts), now))
         return
 
     # ---- Existing /search handler ---------------
     if user_message.lower().startswith("search: "):
+        terms = user_message[len("search: "):].strip()
+        result = search_conversation(total_chat_embeddings[channel_id], terms, cached_chat_history[channel_id])
+        cached_chat_history[channel_id] = []
+        await message.channel.send(f"🔎 Search:\n{result}")
         total_chat_history[channel_id].append((user_name, user_message, now))
         total_chat_embeddings[channel_id].add_documents([Document(page_content=user_message, metadata={"user": user_name, "timestamp": now})])
-        terms = user_message[len("search: "):].strip()
-        result = search_conversation(total_chat_embeddings[channel_id], terms)
-        await message.channel.send(f"🔎 Search:\n{result}")
+        cached_chat_history[channel_id].append((user_name, user_message, now))
         total_chat_history[channel_id].append(("Bot", result, now))
         total_chat_embeddings[channel_id].add_documents([Document(page_content=result, metadata={"user": "Bot", "timestamp": now})])
+        cached_chat_history[channel_id].append(("Bot", result, now))
         return
 
     # ---- Testing utilities ----------------------
@@ -221,6 +232,7 @@ async def on_message(message):
         total_chat_history[channel_id].append((user_name, user_real_message, now))
         total_chat_embeddings[channel_id].add_documents([Document(page_content=user_real_message, metadata={"user": user_name, "timestamp": now})])
         user_chat_history[user_id].append((user_name, user_real_message, now))
+        cached_chat_history[channel_id].append((user_name, user_real_message, now))
 
         # Build prompt
         full_prompt = f"""
@@ -245,9 +257,11 @@ async def on_message(message):
         total_chat_history[channel_id].append(("Bot", bot_reply, now))
         total_chat_embeddings[channel_id].add_documents([Document(page_content=bot_reply, metadata={"user": "Bot", "timestamp": now})])
         user_chat_history[user_id].append(("Bot", bot_reply, now))
+        cached_chat_history[channel_id].append(("Bot", bot_reply, now))
         return
     else:
         total_chat_history[channel_id].append((user_name, user_message, now))
         total_chat_embeddings[channel_id].add_documents([Document(page_content=user_message, metadata={"user": user_name, "timestamp": now})])
-
+        user_chat_history[user_id].append((user_name, user_message, now))
+        cached_chat_history[channel_id].append((user_name, user_message, now))
 client.run(discord_token)

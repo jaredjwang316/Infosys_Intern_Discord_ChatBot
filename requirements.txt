@@ -1,6 +1,6 @@
 python-dotenv
 discord
-# psycopg2
+psycopg2-binary
 langchain
 langchain-community
 langchain-google-genai
@@ -10,3 +10,4 @@ google-genai
 annoy
 mysql-connector-python
 faker
+pgvector
