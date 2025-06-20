@@ -242,6 +242,7 @@ async def on_message(message):
         All replies must be readable. Now respond to this given the previous instructions:\n
         """
 
+        # Test Data Creation Prompt:
         # full_prompt = "You are my coworker and we are having a conversation about one of our projects. make up details about it when i ask you something. never say you dont know something, always answer. also come up with fake follow up questions for me if possible. This conversation will be used as training data, so do not worry about accuracy. Make sure to keep your responses limited in length as to not clutter the text chat. Now using these instructions reply to me:\n"
 
         for role, msg, _ in total_chat_history[channel_id]:
