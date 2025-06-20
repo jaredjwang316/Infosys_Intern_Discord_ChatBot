@@ -81,6 +81,7 @@ def generate_query(sql_query):
     - Use appropriate table and column names from the schema.
     - Do not use comments, markdown, or any other formatting in the SQL query (i.e. sql```...```).
     - DO NOT SHOW ID COLUMNS UNLESS SPECIFICALLY REQUESTED.
+    - If asked for a certain type of email (.com, .org, etc.), search the end of the email adress.
     
     ### DATABASE SCHEMA ###
     {db_schema}
@@ -97,6 +98,7 @@ def generate_query(sql_query):
     response = model.invoke(message).content.strip()
     response = strip_query(response)
 
+
     count = 0
     while not is_valid_sql(response):
         count += 1
@@ -112,6 +114,7 @@ def generate_query(sql_query):
         - Use appropriate table and column names from the schema.
         - Do not use comments, markdown, or any other formatting in the SQL query (i.e. sql```...```).
         - DO NOT SHOW ID COLUMNS UNLESS SPECIFICALLY REQUESTED.
+        - If asked for a certain type of email (.com, .org, etc.), search the end of the email adress.
 
         ### DATABASE SCHEMA ###
         {db_schema}
@@ -126,6 +129,7 @@ def generate_query(sql_query):
         """
         response = model.invoke(reprompt_template).content.strip()
         response = strip_query(response)
+
 
     return response
 
@@ -151,6 +155,7 @@ def retry_query(sql_query, information=None):
         - Ensure the SQL query is syntactically correct.
         - Use appropriate table and column names from the schema.
         - Do not use comments, markdown, or any other formatting in the SQL query (i.e. sql```...```).
+        - If asked for a certain type of email (.com, .org, etc.), search the end of the email adress.
 
         ### DATABASE SCHEMA ###
         {SCHEMA_TEXT}
@@ -173,6 +178,7 @@ def retry_query(sql_query, information=None):
         response = model.invoke(reprompt_template).content.strip()
         response = strip_query(response)
 
+
         while not is_valid_sql(response):
             reprompt_template = f"""
             The SQL query you provided is not valid. Please generate a correct SQL query based on the user's request and the database schema to find more information about the data to help you refine your query.
@@ -182,6 +188,8 @@ def retry_query(sql_query, information=None):
             - Ensure the SQL query is syntactically correct.
             - Use appropriate table and column names from the schema.
             - Do not use comments, markdown, or any other formatting in the SQL query (i.e. sql```...```).
+            - DO NOT SHOW ID COLUMNS UNLESS SPECIFICALLY REQUESTED.
+            - If asked for a certain type of email (.com, .org, etc.), search the end of the email adress.
 
             ### DATABASE SCHEMA ###
             {SCHEMA_TEXT}
@@ -205,6 +213,7 @@ def retry_query(sql_query, information=None):
             response = model.invoke(reprompt_template).content.strip()
             response = strip_query(response)
 
+
         cur.execute(response)
         rows = cur.fetchall()
 
@@ -223,6 +232,7 @@ def retry_query(sql_query, information=None):
         - Ensure the SQL query is syntactically correct.
         - Use appropriate table and column names from the schema.
         - Do not use comments, markdown, or any other formatting in the SQL query (i.e. sql```...```).
+        - If asked for a certain type of email (.com, .org, etc.), search the end of the email adress.
 
         ### DATABASE SCHEMA ###
         {SCHEMA_TEXT}
@@ -245,6 +255,7 @@ def retry_query(sql_query, information=None):
         response = model.invoke(retry_template).content.strip()
         response = strip_query(response)
 
+
         while not is_valid_sql(response):
             reprompt_template = f"""
             The SQL query you provided is not valid. Please generate a correct SQL query that fulfills the user's request.
@@ -254,6 +265,7 @@ def retry_query(sql_query, information=None):
             - Ensure the SQL query is syntactically correct.
             - Use appropriate table and column names from the schema.
             - Do not use comments, markdown, or any other formatting in the SQL query (i.e. sql```...```).
+            - If asked for a certain type of email (.com, .org, etc.), search the end of the email adress.
 
             ### DATABASE SCHEMA ###
             {SCHEMA_TEXT}
@@ -276,6 +288,7 @@ def retry_query(sql_query, information=None):
             """
             response = model.invoke(reprompt_template).content.strip()
             response = strip_query(response)
+
         
         cur.execute(response)
         rows = cur.fetchall()
