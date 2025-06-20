@@ -7,10 +7,12 @@ from langchain_core.vectorstores import InMemoryVectorStore
 from langchain.schema import Document
 # import psycopg2
 import datetime
+import threading
+import concurrent.futures
 
 from functions.query import query_data
 from functions.summary import summarize_conversation
-from functions.search import search_conversation
+from functions.search import search_conversation, search_conversation_quick
 
 load_dotenv()
 api_key       = os.getenv("GOOGLE_API_KEY")
@@ -186,15 +188,34 @@ async def on_message(message):
     # ---- Existing /search handler ---------------
     if user_message.lower().startswith("search: "):
         terms = user_message[len("search: "):].strip()
-        result = search_conversation(total_chat_embeddings[channel_id], terms, cached_chat_history[channel_id])
+
+        await message.channel.send(f"🔎 Searching for: `{terms}`")
+        quick_result = search_conversation_quick(total_chat_embeddings[channel_id], terms)
+        await message.channel.send(f"🔎 Search result:\n{quick_result}")
+        
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            future = executor.submit(search_conversation, total_chat_embeddings[channel_id], terms, cached_chat_history[channel_id], channel_id, quick_result)
+            
+            try:
+                total_result = future.result(timeout=30)
+                if total_result:
+                    await message.channel.send(total_result)
+            except concurrent.futures.TimeoutError:
+                print("Long search operation timed out, using only quick response instead.")
+            except Exception as e:
+                await message.channel.send(f"❌ Error: {e}")
+
         cached_chat_history[channel_id] = []
-        await message.channel.send(f"🔎 Search:\n{result}")
         total_chat_history[channel_id].append((user_name, user_message, now))
         total_chat_embeddings[channel_id].add_documents([Document(page_content=user_message, metadata={"user": user_name, "timestamp": now})])
         cached_chat_history[channel_id].append((user_name, user_message, now))
-        total_chat_history[channel_id].append(("Bot", result, now))
-        total_chat_embeddings[channel_id].add_documents([Document(page_content=result, metadata={"user": "Bot", "timestamp": now})])
-        cached_chat_history[channel_id].append(("Bot", result, now))
+        total_chat_history[channel_id].append(("Bot", quick_result, now))
+        total_chat_embeddings[channel_id].add_documents([Document(page_content=quick_result, metadata={"user": "Bot", "timestamp": now})])
+        cached_chat_history[channel_id].append(("Bot", quick_result, now))
+        if total_result:
+            total_chat_history[channel_id].append(("Bot", total_result, now))
+            total_chat_embeddings[channel_id].add_documents([Document(page_content=total_result, metadata={"user": "Bot", "timestamp": now})])
+            cached_chat_history[channel_id].append(("Bot", total_result, now))
         return
 
     # ---- Testing utilities ----------------------
