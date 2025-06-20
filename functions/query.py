@@ -98,7 +98,6 @@ def generate_query(sql_query):
     response = model.invoke(message).content.strip()
     response = strip_query(response)
 
-    print(f"1: {response}")
 
     count = 0
     while not is_valid_sql(response):
@@ -131,7 +130,6 @@ def generate_query(sql_query):
         response = model.invoke(reprompt_template).content.strip()
         response = strip_query(response)
 
-        print(f"2: {response}")
 
     return response
 
@@ -180,7 +178,6 @@ def retry_query(sql_query, information=None):
         response = model.invoke(reprompt_template).content.strip()
         response = strip_query(response)
 
-        print(f"3: {response}")
 
         while not is_valid_sql(response):
             reprompt_template = f"""
@@ -216,7 +213,6 @@ def retry_query(sql_query, information=None):
             response = model.invoke(reprompt_template).content.strip()
             response = strip_query(response)
 
-            print(f"4: {response}")
 
         cur.execute(response)
         rows = cur.fetchall()
@@ -259,7 +255,6 @@ def retry_query(sql_query, information=None):
         response = model.invoke(retry_template).content.strip()
         response = strip_query(response)
 
-        print(f"5: {response}")
 
         while not is_valid_sql(response):
             reprompt_template = f"""
@@ -294,7 +289,6 @@ def retry_query(sql_query, information=None):
             response = model.invoke(reprompt_template).content.strip()
             response = strip_query(response)
 
-            print(f"6: {response}")
         
         cur.execute(response)
         rows = cur.fetchall()
