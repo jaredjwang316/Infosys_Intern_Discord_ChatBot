@@ -11,11 +11,11 @@ load_dotenv()
 api_key = os.getenv("GOOGLE_API_KEY")
 model_name = os.getenv("MODEL_NAME")
 
-db_host = os.getenv("DB_HOST")
-db_port = os.getenv("DB_PORT")
-db_name = os.getenv("DB_NAME")
-db_user = os.getenv("DB_USER")
-db_password = os.getenv("DB_PASSWORD")
+db_host = os.getenv("PG_DB_HOST")
+db_port = os.getenv("PG_DB_PORT")
+db_name = os.getenv("PG_DB_NAME")
+db_user = os.getenv("PG_DB_USER")
+db_password = os.getenv("PG_DB_PASSWORD")
 
 # gemini
 model = ChatGoogleGenerativeAI(
