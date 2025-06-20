@@ -23,22 +23,23 @@ table_names = re.findall(
 
 allowed_tables = {name.upper() for name in table_names}
 
-# # DB config
-# DB_CONFIG = {
-#     "host": os.getenv("DB_HOST"),
-#     "user": os.getenv("DB_USER"),
-#     "password": os.getenv("DB_PASS"),
-#     "database": os.getenv("DB_NAME"),
-# }
-# conn = mysql.connector.connect(**DB_CONFIG)
-# cur =  conn.cursor()
-
+# DB config
 load_dotenv()
 db_host = os.getenv("DB_HOST")
 db_port = os.getenv("DB_PORT")
 db_name = os.getenv("DB_NAME")
 db_user = os.getenv("DB_USER")
 db_password = os.getenv("DB_PASSWORD")
+
+# Establish global PostgreSQL connection and cursor
+conn = psycopg2.connect(
+    host=db_host,
+    port=db_port,
+    dbname=db_name,
+    user=db_user,
+    password=db_password
+)
+cur = conn.cursor()
 
 # gemini
 model = ChatGoogleGenerativeAI(
@@ -53,10 +54,29 @@ model = ChatGoogleGenerativeAI(
 user_chat_history = {}
 total_chat_history = {}
 
+tips = str()
+
+def strip_query(query):
+    # Remove common code fences and leading/trailing whitespace, but not quotes inside
+    query = query.strip()
+    # Remove markdown code block fences if present (```sql or ``` etc.)
+    if query.startswith("```") and query.endswith("```"):
+        query = "\n".join(query.split("\n")[1:-1]).strip()
+    # Remove single line backticks (`)
+    query = query.strip('`').strip()
+    # Remove any leading 'sql' or 'SQL' on a separate line
+    query = re.sub(r"^(sql|SQL)\s*", "", query, flags=re.IGNORECASE)
+    return query
+
 def generate_query(sql_query):
     # change prompt to not be a hypothetical if correct. Validating will be the next step.
 
     db_schema = SCHEMA_TEXT
+    global tips
+    if tips:
+        query_tips = f"\n### TIPS ###\n{tips}\n"
+    else:
+        query_tips = ""
 
     prompt_template = f"""
     You are an expert at querying databases. Your task is to generate a SQL query based on the user's request.
@@ -67,10 +87,11 @@ def generate_query(sql_query):
     - Use appropriate table and column names from the schema.
     - Do not use comments, markdown, or any other formatting in the SQL query (i.e. sql```...```).
     - DO NOT SHOW ID COLUMNS UNLESS SPECIFICALLY REQUESTED.
+    - If asked for a certain type of email (.com, .org, etc.), search the end of the email adress.
     
     ### DATABASE SCHEMA ###
     {db_schema}
-
+    {query_tips}
     ### USER REQUEST ###
     {sql_query}
 
@@ -81,20 +102,8 @@ def generate_query(sql_query):
         HumanMessage(content=prompt_template)
     ]
     response = model.invoke(message).content.strip()
-
-    def strip_query(query):
-        # Remove common code fences and leading/trailing whitespace, but not quotes inside
-        query = query.strip()
-        # Remove markdown code block fences if present (```sql or ``` etc.)
-        if query.startswith("```") and query.endswith("```"):
-            query = "\n".join(query.split("\n")[1:-1]).strip()
-        # Remove single line backticks (`)
-        query = query.strip('`').strip()
-        # Remove any leading 'sql' or 'SQL' on a separate line
-        query = re.sub(r"^(sql|SQL)\s*", "", query, flags=re.IGNORECASE)
-        return query
-    
     response = strip_query(response)
+
 
     count = 0
     while not is_valid_sql(response):
@@ -104,16 +113,18 @@ def generate_query(sql_query):
         
         reprompt_template = f"""
         The SQL query you provided is not valid. Please generate a correct SQL query based on the user's request and the database schema.
+        
         ### INSTRUCTION ###
         Given the database schema below, generate a SQL query that fulfills the user's request.
         - Ensure the SQL query is syntactically correct.
         - Use appropriate table and column names from the schema.
         - Do not use comments, markdown, or any other formatting in the SQL query (i.e. sql```...```).
         - DO NOT SHOW ID COLUMNS UNLESS SPECIFICALLY REQUESTED.
+        - If asked for a certain type of email (.com, .org, etc.), search the end of the email adress.
 
         ### DATABASE SCHEMA ###
         {db_schema}
-
+        {query_tips}
         ### USER REQUEST ###
         {sql_query}
 
@@ -125,7 +136,179 @@ def generate_query(sql_query):
         response = model.invoke(reprompt_template).content.strip()
         response = strip_query(response)
 
+
     return response
+
+def retry_query(sql_query, information=None):
+    global tips
+    if tips:
+        query_tips = f"\n### TIPS ###\n{tips}\n"
+    else:
+        query_tips = ""
+
+    if not information:
+        information = "No additional information found yet."
+    
+    count = 0
+    
+    rows = None
+    while not rows and count < 3:
+        reprompt_template = f"""
+        The SQL query you provided did not return any results. This may be due to an error in the query or a lack of matching data in the database. Please generate a correct SQL query based on the user's request and the database schema to find more information about the data to help you refine your query.
+        
+        ### INSTRUCTION ###
+        Given the database schema below, generate a SQL query that retrieves more information about the data.
+        - Ensure the SQL query is syntactically correct.
+        - Use appropriate table and column names from the schema.
+        - Do not use comments, markdown, or any other formatting in the SQL query (i.e. sql```...```).
+        - If asked for a certain type of email (.com, .org, etc.), search the end of the email adress.
+
+        ### DATABASE SCHEMA ###
+        {SCHEMA_TEXT}
+        {query_tips}
+        ### FOUND INFORMATION ###
+        {information}
+
+        ### USER REQUEST ###
+        {sql_query}
+
+        ### PREVIOUS SQL QUERY ###
+        {sql_query}
+
+        Remember to:
+        - Ensure the SQL query is syntactically correct.
+        - Find more information about the data to help you refine your query.
+
+        ### NEW SQL QUERY ###
+        """
+        response = model.invoke(reprompt_template).content.strip()
+        response = strip_query(response)
+
+
+        while not is_valid_sql(response):
+            reprompt_template = f"""
+            The SQL query you provided is not valid. Please generate a correct SQL query based on the user's request and the database schema to find more information about the data to help you refine your query.
+            
+            ### INSTRUCTION ###
+            Given the database schema below, generate a SQL query that retrieves more information about the data.
+            - Ensure the SQL query is syntactically correct.
+            - Use appropriate table and column names from the schema.
+            - Do not use comments, markdown, or any other formatting in the SQL query (i.e. sql```...```).
+            - DO NOT SHOW ID COLUMNS UNLESS SPECIFICALLY REQUESTED.
+            - If asked for a certain type of email (.com, .org, etc.), search the end of the email adress.
+
+            ### DATABASE SCHEMA ###
+            {SCHEMA_TEXT}
+            {query_tips}
+
+            ### FOUND INFORMATION ###
+            {information}
+
+            ### USER REQUEST ###
+            {sql_query}
+
+            ### PREVIOUS SQL QUERY ###
+            {response}
+
+            Remember to:
+            - Ensure the SQL query is syntactically correct.
+            - Find more information about the data to help you refine your query.
+
+            ### NEW SQL QUERY ###
+            """
+            response = model.invoke(reprompt_template).content.strip()
+            response = strip_query(response)
+
+
+        cur.execute(response)
+        rows = cur.fetchall()
+
+        if not rows:
+            information = "No results found."
+        cols = [desc[0] for desc in cur.description]
+        lines = [" | ".join(cols)]
+        lines += [" | ".join(map(str, row)) for row in rows]
+        table = "\n".join(lines)
+        information = format_table(table)
+
+        retry_template = f"""
+        You previously generated a SQL query that did not return any results. Based on the new information retrieved, please refine your SQL query to ensure it fulfills the user's request and retrieves relevant data.
+        ### INSTRUCTION ###
+        Given the database schema below, generate a SQL query that fulfills the user's request.
+        - Ensure the SQL query is syntactically correct.
+        - Use appropriate table and column names from the schema.
+        - Do not use comments, markdown, or any other formatting in the SQL query (i.e. sql```...```).
+        - If asked for a certain type of email (.com, .org, etc.), search the end of the email adress.
+
+        ### DATABASE SCHEMA ###
+        {SCHEMA_TEXT}
+        {query_tips}
+        ### FOUND INFORMATION ###
+        {information}
+
+        ### PREVIOUS SQL QUERY ###
+        {response}
+
+        ### USER REQUEST ###
+        {sql_query}
+
+        Remember to:
+        - Ensure the SQL query is syntactically correct.
+        - Find more information about the data to help you refine your query.
+
+        ### NEW SQL QUERY ###
+        """
+        response = model.invoke(retry_template).content.strip()
+        response = strip_query(response)
+
+
+        while not is_valid_sql(response):
+            reprompt_template = f"""
+            The SQL query you provided is not valid. Please generate a correct SQL query that fulfills the user's request.
+
+            ### INSTRUCTION ###
+            Given the database schema below, generate a SQL query that retrieves more information about the data.
+            - Ensure the SQL query is syntactically correct.
+            - Use appropriate table and column names from the schema.
+            - Do not use comments, markdown, or any other formatting in the SQL query (i.e. sql```...```).
+            - If asked for a certain type of email (.com, .org, etc.), search the end of the email adress.
+
+            ### DATABASE SCHEMA ###
+            {SCHEMA_TEXT}
+            {query_tips}
+
+            ### FOUND INFORMATION ###
+            {information}
+
+            ### PREVIOUS SQL QUERY ###
+            {response}
+
+            ### USER REQUEST ###
+            {sql_query}
+
+            Remember to:
+            - Ensure the SQL query is syntactically correct.
+            - Fulfill the user's request.
+
+            ### NEW SQL QUERY ###
+            """
+            response = model.invoke(reprompt_template).content.strip()
+            response = strip_query(response)
+
+        
+        cur.execute(response)
+        rows = cur.fetchall()
+        count += 1
+
+    if not rows:
+        return None
+    cols = [desc[0] for desc in cur.description]
+    lines = [" | ".join(cols)]
+    lines += [" | ".join(map(str, row)) for row in rows]
+    table = "\n".join(lines)
+    tables = format_table(table)
+
+    return tables
 
 def is_valid_sql(query):
     if not query or not isinstance(query, str):
@@ -152,7 +335,7 @@ def is_valid_sql(query):
     join_tables = [m[1] for m in re.findall(join_pattern, cleaned_text)]
 
     for tbl in from_tables + join_tables:
-        if tbl.upper() not in allowed_tables:
+        if tbl.upper() not in allowed_table_names:
             print(f"Table '{tbl}' not in schema")
             return False
 
@@ -182,30 +365,18 @@ def query_data(user_query):
     if not sql_query:
         return ["❌ Unable to generate a valid SQL query after multiple attempts."]
     
-    try:
-        conn = psycopg2.connect(
-            host=db_host,
-            port=db_port,
-            database=db_name,
-            user=db_user,
-            password=db_password
-        )
-        cur = conn.cursor()
-        cur.execute(sql_query)
-        rows = cur.fetchall()
-
+    cur.execute(sql_query)
+    rows = cur.fetchall()
+    if not rows:
+        tables = retry_query(sql_query)
+        if not tables:
+            return ["❌ No results found for the query. Please refine your request or try a different query."]
+    else:
         cols = [desc[0] for desc in cur.description]
-
-        cur.close()
-        conn.close()
-    
-    except Exception as e:
-        return [f"❌ Error executing SQL query: {str(e)}"]
-
-    lines = [" | ".join(cols)]
-    lines += [" | ".join(map(str, row)) for row in rows]
-    table = "\n".join(lines)
-    tables = format_table(table)
+        lines = [" | ".join(cols)]
+        lines += [" | ".join(map(str, row)) for row in rows]
+        table = "\n".join(lines)
+        tables = format_table(table)
     texts = list()
     for table in tables:
         texts.append("```" + table + "```")
