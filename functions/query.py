@@ -4,6 +4,8 @@ from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage
 import psycopg2
+from psycopg2 import OperationalError
+import sqlalchemy
 
 load_dotenv()
 api_key = os.getenv("GOOGLE_API_KEY")
@@ -24,22 +26,21 @@ table_names = re.findall(
 allowed_tables = {name.upper() for name in table_names}
 
 # DB config
-load_dotenv()
-db_host = os.getenv("DB_HOST")
-db_port = os.getenv("DB_PORT")
-db_name = os.getenv("DB_NAME")
-db_user = os.getenv("DB_USER")
-db_password = os.getenv("DB_PASSWORD")
+PG_CONFIG = {
+    "host":     os.getenv("PG_DB_HOST"),
+    "port":     os.getenv("PG_DB_PORT", 5432),
+    "user":     os.getenv("PG_DB_USER"),
+    "password": os.getenv("PG_DB_PASSWORD"),
+    "dbname":   os.getenv("PG_DB_NAME"),
+}
 
-# Establish global PostgreSQL connection and cursor
-conn = psycopg2.connect(
-    host=db_host,
-    port=db_port,
-    dbname=db_name,
-    user=db_user,
-    password=db_password
-)
-cur = conn.cursor()
+try:
+    conn = psycopg2.connect(**PG_CONFIG)
+    conn.autocommit = True
+    cur  = conn.cursor()
+except OperationalError as e:
+    print("Could not connect to Postgres:", e)
+    raise
 
 # gemini
 model = ChatGoogleGenerativeAI(
