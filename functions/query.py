@@ -33,6 +33,7 @@ PG_CONFIG = {
     "password": os.getenv("DB_PASSWORD"),
     "dbname":   os.getenv("DB_NAME"),
 }
+print(PG_CONFIG)
 
 try:
     conn = psycopg2.connect(**PG_CONFIG)
