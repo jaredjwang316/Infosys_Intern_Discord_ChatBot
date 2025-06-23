@@ -95,7 +95,7 @@ def search_conversation(short_vectorstore, search_query, cached_chat_history, ch
 
     print("🔍 Searching long-term memory...")
     long_results = long_vectorstore.similarity_search(search_query, k=5)
-    
+
     # Remove duplicates based on content
     unique_results = []
     seen_content = set()
