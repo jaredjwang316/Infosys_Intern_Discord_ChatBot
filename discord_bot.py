@@ -128,27 +128,6 @@ async def on_message(message):
         total_chat_embeddings[channel_id].add_documents([Document(page_content=summary, metadata={"user": "Bot", "timestamp": now})])
         cached_chat_history[channel_id].append(("Bot", summary, now))
         return
-
-    # ---- Help command --------------------------
-    if user_message.lower() == "help":
-        await message.channel.send(
-            "# General Help:\n"
-            "Use `ask: <your question>` to ask the bot a question.\n"
-            "Use `summary` to get a summary of the conversation.\n"
-            "Use `summary: last X [minute|hour|day|week|month|year]` for a time-limited summary.\n"
-            "Use `search: <terms>` to search for terms in the conversation.\n"
-            "Use `query: <your query>` to run a SQL-like query on the conversation.\n"
-            "Use `clear` to clear your memory."
-            "Use `exit` to stop the bot.\n"
-            "# Testing Help:\n"
-            "Use `gen_chat` to generate a new conversation with timestamps (timestamps are from 6/19/2025).\n"
-            #"Use `gen_no_time` to generate a new conversation without timestamps.\n"
-            "Use `test` to test the bot's response.\n"
-            "Use `show_history` to display the current conversation history.\n"
-            "Use `where_am_i` to find out which channel you are in.\n"
-            "Use `help` to see this message again.\n"
-        )
-        return
     
     # ---- Summary command ------------------------
     if user_message.lower() == "summary":
