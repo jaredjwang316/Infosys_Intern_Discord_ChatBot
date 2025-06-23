@@ -1,16 +1,19 @@
 import os
-import re
 import discord
+
 from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
 from langchain_core.vectorstores import InMemoryVectorStore
 from langchain.schema import Document
 # import psycopg2
 import datetime
+import threading
+import concurrent.futures
+import re 
 
 from functions.query import query_data
 from functions.summary import summarize_conversation
-from functions.search import search_conversation
+from functions.search import search_conversation, search_conversation_quick
 
 load_dotenv()
 api_key       = os.getenv("GOOGLE_API_KEY")
@@ -43,6 +46,12 @@ user_chat_history = {}
 total_chat_history = {}
 total_chat_embeddings = {}
 cached_chat_history = {}
+
+# dictionary keyed by user_id, where each value is a list of query strings made by that user in the current session.
+user_query_session_history = {}  # { user_id: [query_1, query_2, ...] }
+
+# used to determine if a user’s message that does not start with "query" should be interpreted as a follow-up to a previous query.
+last_command_type = {}  # { user_id: "query" or None }
 
 def split_response(response, line_split=True):
     max_length = 1900
@@ -85,10 +94,10 @@ async def on_message(message):
     if message.author == client.user:
         return
 
-    user_id      = message.author.id
-    user_name    = message.author.mention
-    user_message = message.content.strip()
-    channel_id   = message.channel.id
+    user_id      = message.author.id    #unique Discord user ID of the message sender.
+    user_name    = message.author.mention   #string to mention/tag the user in a message.
+    user_message = message.content.strip()  #actual text content of the message the user sent.
+    channel_id   = message.channel.id   #The unique ID of the channel where the message was sent.
     now = datetime.datetime.utcnow()
 
     # Initialize histories
@@ -119,8 +128,29 @@ async def on_message(message):
         total_chat_embeddings[channel_id].add_documents([Document(page_content=summary, metadata={"user": "Bot", "timestamp": now})])
         cached_chat_history[channel_id].append(("Bot", summary, now))
         return
+
+    # ---- Help command --------------------------
+    if user_message.lower() == "help":
+        await message.channel.send(
+            "# General Help:\n"
+            "Use `ask: <your question>` to ask the bot a question.\n"
+            "Use `summary` to get a summary of the conversation.\n"
+            "Use `summary: last X [minute|hour|day|week|month|year]` for a time-limited summary.\n"
+            "Use `search: <terms>` to search for terms in the conversation.\n"
+            "Use `query: <your query>` to run a SQL-like query on the conversation.\n"
+            "Use `clear` to clear your memory."
+            "Use `exit` to stop the bot.\n"
+            "# Testing Help:\n"
+            "Use `gen_chat` to generate a new conversation with timestamps (timestamps are from 6/19/2025).\n"
+            #"Use `gen_no_time` to generate a new conversation without timestamps.\n"
+            "Use `test` to test the bot's response.\n"
+            "Use `show_history` to display the current conversation history.\n"
+            "Use `where_am_i` to find out which channel you are in.\n"
+            "Use `help` to see this message again.\n"
+        )
+        return
     
-    # ---- Basic Summary --------------------------------------------------------------------------------------------------------------------
+    # ---- Summary command ------------------------
     if user_message.lower() == "summary":
         total_chat_history[channel_id].append((user_name, user_message, now))
         total_chat_embeddings[channel_id].add_documents([Document(page_content=user_message, metadata={"user": user_name, "timestamp": now})])
@@ -137,17 +167,57 @@ async def on_message(message):
         cached_chat_history[channel_id].append(("Bot", summary, now))
         return
 
-    # ---- NEW /query handler ---------------------------------------------------------------------------------------------------------------
+    # ---- Query handler ---------------------
     if user_message.lower().startswith("query: "):
-        total_chat_history[channel_id].append((user_name, user_message, now))
-        total_chat_embeddings[channel_id].add_documents([Document(page_content=user_message, metadata={"user": user_name, "timestamp": now})])
-        cached_chat_history[channel_id].append((user_name, user_message, now))
+
         user_query = user_message[7:].strip()
-        texts = query_data(user_query)
+
+        # Initialize session history
+        user_query_session_history.setdefault(user_id, [])
+
+        # Store current query in session history
+        user_query_session_history[user_id].append(user_query)
+
+        # Combine all queries from this session as context
+        session_history = user_query_session_history[user_id]
+
+        # Pass session history (list of past queries) to query_data
+        texts = query_data(user_id, user_query, session_history=session_history)
+
         for text in texts:
             if not text.strip():
                 continue
             await message.channel.send(text)
+        # Save current message to history as usual
+        total_chat_history[channel_id].append((user_name, user_message, now))
+        total_chat_embeddings[channel_id].add_documents([Document(page_content=user_message, metadata={"user": user_name, "timestamp": now})])
+        cached_chat_history[channel_id].append((user_name, user_message, now))
+
+        # Save bot response to history
+        total_chat_history[channel_id].append(("Bot", texts, now))
+        total_chat_embeddings[channel_id].add_documents([Document(page_content=str(texts), metadata={"user": "Bot", "timestamp": now})])
+        cached_chat_history[channel_id].append(("Bot", str(texts), now))
+
+        last_command_type[user_id] = "query"
+        return
+
+    # ---- Follow-up Query Handler (no "query:" prefix) ---------------------
+    if last_command_type.get(user_id) == "query" and not user_message.lower().startswith(("ask:", "summary", "search:", "help", "exit", "clear")):
+        user_query = user_message.strip()
+        user_query_session_history.setdefault(user_id, [])
+        user_query_session_history[user_id].append(user_query)
+        session_history = user_query_session_history[user_id]
+        texts = query_data(user_id, user_query, session_history=session_history)
+
+        for text in texts:
+            if not text.strip():
+                continue
+            await message.channel.send(text)
+
+        total_chat_history[channel_id].append((user_name, user_message, now))
+        total_chat_embeddings[channel_id].add_documents([Document(page_content=user_message, metadata={"user": user_name, "timestamp": now})])
+        cached_chat_history[channel_id].append((user_name, user_message, now))
+
         total_chat_history[channel_id].append(("Bot", texts, now))
         total_chat_embeddings[channel_id].add_documents([Document(page_content=str(texts), metadata={"user": "Bot", "timestamp": now})])
         cached_chat_history[channel_id].append(("Bot", str(texts), now))
@@ -156,15 +226,34 @@ async def on_message(message):
     # ---- Existing /search handler ---------------------------------------------------------------------------------------------------------
     if user_message.lower().startswith("search: "):
         terms = user_message[len("search: "):].strip()
-        result = search_conversation(total_chat_embeddings[channel_id], terms, cached_chat_history[channel_id])
+
+        await message.channel.send(f"🔎 Searching for: `{terms}`")
+        quick_result = search_conversation_quick(total_chat_embeddings[channel_id], terms)
+        await message.channel.send(f"🔎 Search result:\n{quick_result}")
+        
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            future = executor.submit(search_conversation, total_chat_embeddings[channel_id], terms, cached_chat_history[channel_id], channel_id, quick_result)
+            
+            try:
+                total_result = future.result(timeout=30)
+                if total_result:
+                    await message.channel.send(total_result)
+            except concurrent.futures.TimeoutError:
+                print("Long search operation timed out, using only quick response instead.")
+            except Exception as e:
+                await message.channel.send(f"❌ Error: {e}")
+
         cached_chat_history[channel_id] = []
-        await message.channel.send(f"🔎 Search:\n{result}")
         total_chat_history[channel_id].append((user_name, user_message, now))
         total_chat_embeddings[channel_id].add_documents([Document(page_content=user_message, metadata={"user": user_name, "timestamp": now})])
         cached_chat_history[channel_id].append((user_name, user_message, now))
-        total_chat_history[channel_id].append(("Bot", result, now))
-        total_chat_embeddings[channel_id].add_documents([Document(page_content=result, metadata={"user": "Bot", "timestamp": now})])
-        cached_chat_history[channel_id].append(("Bot", result, now))
+        total_chat_history[channel_id].append(("Bot", quick_result, now))
+        total_chat_embeddings[channel_id].add_documents([Document(page_content=quick_result, metadata={"user": "Bot", "timestamp": now})])
+        cached_chat_history[channel_id].append(("Bot", quick_result, now))
+        if total_result:
+            total_chat_history[channel_id].append(("Bot", total_result, now))
+            total_chat_embeddings[channel_id].add_documents([Document(page_content=total_result, metadata={"user": "Bot", "timestamp": now})])
+            cached_chat_history[channel_id].append(("Bot", total_result, now))
         return
 
     # ---- Testing utilities ----------------------------------------------------------------------------------------------------------------
@@ -221,7 +310,8 @@ async def on_message(message):
             "Use `summary: last X [minute|hour|day|week|month|year]` for a time-limited summary.\n"
             "Use `search: <terms>` to search for terms in the conversation.\n"
             "Use `query: <your query>` to run a SQL-like query on the conversation.\n"
-            "Use `clear` to clear your memory."
+            "After typing `query:`, you can ask follow-up questions directly without typing `query:` again.\n"
+            "Use `clear` to clear your memory.\n"
             "Use `exit` to stop the bot.\n"
             "# Testing Help:\n"
             "Use `gen_chat` to generate a new conversation with timestamps (timestamps are from 6/19/2025).\n"
