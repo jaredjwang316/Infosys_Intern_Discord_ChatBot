@@ -7,7 +7,6 @@ langchain-google-genai
 langchain-openai
 langchain-core
 google-genai
-annoy
 mysql-connector-python
 faker
 pgvector
