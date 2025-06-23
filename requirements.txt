@@ -1,13 +1,11 @@
 python-dotenv
 discord
-psycopg2-binary
+psycopg2
 langchain
 langchain-community
 langchain-google-genai
 langchain-openai
 langchain-core
 google-genai
-annoy
-mysql-connector-python
 faker
 pgvector
