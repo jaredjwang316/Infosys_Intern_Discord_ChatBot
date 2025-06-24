@@ -208,7 +208,7 @@ async def on_message(message):
 
         await message.channel.send(f"🔎 Searching for: `{terms}`")
         quick_result = search_conversation_quick(total_chat_embeddings[channel_id], terms)
-        await message.channel.send(f"🔎 Search result:\n{quick_result}")
+        await message.channel.send(quick_result)
         
         with concurrent.futures.ThreadPoolExecutor() as executor:
             future = executor.submit(search_conversation, total_chat_embeddings[channel_id], terms, cached_chat_history[channel_id], channel_id, quick_result)

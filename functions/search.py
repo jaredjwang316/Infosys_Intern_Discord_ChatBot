@@ -44,7 +44,7 @@ def search_conversation_quick(short_vectorstore, search_query):
     short_results = short_vectorstore.similarity_search(search_query, k=5)
 
     if not short_results:
-        return "No recent information found in conversation history."
+        return "still searching..."
     
     quick_context = ""
     for i, doc in enumerate(short_results):
@@ -59,6 +59,9 @@ def search_conversation_quick(short_vectorstore, search_query):
     {quick_context}
     
     Keep the response concise and focused on the most relevant recent information.
+
+    IF THERE IS NO RECENT INFORMATION THAT IS RELEVANT TO "{search_query}" THEN JUST RETURN THE FOLLOWING:
+    "still searching"
     """
 
     try:
