@@ -1,124 +1,108 @@
 #!/usr/bin/env python3
 import os
+import re
 import random
 from datetime import date, timedelta
-
 from dotenv import load_dotenv
-import mysql.connector
+import psycopg2
+from psycopg2 import OperationalError
 from faker import Faker
+from itertools import product
 
-fake = Faker()
+def transform_mysql_to_postgres(stmt: str) -> str:
+    # 1) INT AUTO_INCREMENT → SERIAL PRIMARY KEY
+    stmt = re.sub(
+        r'\bINT\s+AUTO_INCREMENT\s+PRIMARY\s+KEY\b',
+        'SERIAL PRIMARY KEY',
+        stmt,
+        flags=re.IGNORECASE
+    )
+    # 2) Any leftover AUTO_INCREMENT → SERIAL
+    stmt = re.sub(
+        r'\bINT\s+AUTO_INCREMENT\b',
+        'SERIAL',
+        stmt,
+        flags=re.IGNORECASE
+    )
+    # 3) Remove backticks
+    stmt = stmt.replace('`', '')
+    # 4) Strip ENGINE/CHARSET clauses
+    stmt = re.sub(r'ENGINE=\w+\s*', '', stmt, flags=re.IGNORECASE)
+    stmt = re.sub(r'DEFAULT CHARSET=\w+\s*', '', stmt, flags=re.IGNORECASE)
+    return stmt
 
 def main():
-    # ── 1) Load credentials ───────────────────────────────────────────
     load_dotenv()
-    DB_HOST = os.getenv("DB_HOST", "127.0.0.1")
-    DB_USER = os.getenv("DB_USER", "root")
-    DB_PASS = os.getenv("DB_PASS", "")
-    DB_NAME = os.getenv("DB_NAME", "chatops")
+    host = os.getenv("PG_DB_HOST")
+    port = os.getenv("PG_DB_PORT", 5432)
+    user = os.getenv("PG_DB_USER")
+    pwd  = os.getenv("PG_DB_PASSWORD")
+    db   = os.getenv("PG_DB_NAME")
 
-    # ── 2) Ensure database exists ─────────────────────────────────────
-    admin = mysql.connector.connect(host=DB_HOST, user=DB_USER, password=DB_PASS)
-    admin_cursor = admin.cursor()
-    admin_cursor.execute(
-        f"CREATE DATABASE IF NOT EXISTS `{DB_NAME}` DEFAULT CHARACTER SET 'utf8mb4';"
-    )
-    admin_cursor.close()
-    admin.close()
+    # Connect to RDS
+    try:
+        conn = psycopg2.connect(
+            host=host, port=port, user=user, password=pwd, dbname=db
+        )
+        conn.autocommit = True
+        cur = conn.cursor()
+    except OperationalError as e:
+        print("❌ Could not connect to Postgres:", e)
+        return
 
-    # ── 3) Connect to the chatops DB ──────────────────────────────────
-    conn = mysql.connector.connect(
-        host=DB_HOST, user=DB_USER, password=DB_PASS, database=DB_NAME
-    )
-    cur = conn.cursor()
-
-    # ── 4) Load & execute your schema SQL ─────────────────────────────
+    # 1) Load & apply schema
     with open("./database/Schema_test.sql", "r") as f:
-        schema_sql = f.read()
+        raw = f.read()
 
-    with open("./database/schema.txt", "w") as out:
-        # ensure each CREATE TABLE ends up on its own block
-        for stmt in schema_sql.split(';'):
-            stmt = stmt.strip()
-            if not stmt:
-                continue
-            out.write(stmt + ";\n\n")
-
-    # --- now actually execute it against MySQL ---
-    for stmt in schema_sql.split(';'):
-        stmt = stmt.strip()
+    for chunk in raw.split(";"):
+        stmt = chunk.strip()
         if not stmt:
             continue
-        cur.execute(stmt + ';')
-    conn.commit()
+        pg = transform_mysql_to_postgres(stmt)
+        try:
+            cur.execute(pg + ";")
+            print("✅", pg.splitlines()[0])
+        except Exception as e:
+            print("⚠️ Could not run:", pg.splitlines()[0], "→", e)
 
-    
-    # split on semicolons and execute each statement individually
-    for stmt in schema_sql.split(';'):
-        stmt = stmt.strip()
-        if not stmt:
-            continue
-        cur.execute(stmt)
-    conn.commit()
-
-    #
-
-    # ── 5) Truncate tables in FK-safe order ───────────────────────────
-        # ── 5) Truncate tables (disable FK checks to allow truncation) ────
-    cur.execute("SET FOREIGN_KEY_CHECKS = 0;")
-    for tbl in (
-        "employee_skills",
-        "employee_project_assignments",
-        "projects",
-        "clients",
-        "skills",
-        "employees",
-    ):
-        cur.execute(f"TRUNCATE TABLE {tbl};")
-    cur.execute("SET FOREIGN_KEY_CHECKS = 1;")
-    conn.commit()
-
-
-    # ── 6) Seed 20 Employees ──────────────────────────────────────────
+    # 2) Seed data
+    fake = Faker()
+    NUM = 10
     roles = ["Developer", "Tester", "Manager", "DevOps", "Analyst"]
-    employees = []
-    for _ in range(20):
-        employees.append((
+    statuses = ["active", "completed", "on hold"]
+
+    # 2a) Employees
+    employees = [
+        (
             fake.name(),
             fake.unique.email(),
             random.choice(roles),
-            fake.date_between(start_date=date(2020, 1, 1), end_date=date.today()).isoformat()
-        ))
+            fake.date_between(start_date=date(2020,1,1), end_date=date.today()).isoformat()
+        )
+        for _ in range(NUM)
+    ]
     cur.executemany(
-        "INSERT INTO employees (name, email, role, joined_at) VALUES (%s, %s, %s, %s)",
+        "INSERT INTO employees (name, email, role, joined_at) VALUES (%s,%s,%s,%s)",
         employees
     )
-    conn.commit()
 
-    # ── 7) Seed 5 Clients ─────────────────────────────────────────────
-    industries = ["Finance", "Healthcare", "Retail", "Manufacturing", "Technology"]
-    clients = []
-    for _ in range(5):
-        clients.append((
-            fake.company(),
-            random.choice(industries),
-            fake.city()
-        ))
+    # 2b) Clients
+    clients = [
+        (fake.company(), fake.bs().title(), fake.city())
+        for _ in range(NUM)
+    ]
     cur.executemany(
-        "INSERT INTO clients (name, industry, location) VALUES (%s, %s, %s)",
+        "INSERT INTO clients (name, industry, location) VALUES (%s,%s,%s)",
         clients
     )
-    conn.commit()
 
-    # ── 8) Seed 10 Projects ───────────────────────────────────────────
+    # 2c) Projects
     cur.execute("SELECT id FROM clients")
-    client_ids = [row[0] for row in cur.fetchall()]
-
-    statuses = ["active", "completed", "on hold"]
+    client_ids = [r[0] for r in cur.fetchall()]
     projects = []
-    for _ in range(10):
-        start_dt = fake.date_between(start_date=date(2021, 1, 1), end_date=date.today())
-        end_dt   = start_dt + timedelta(days=random.randint(30, 365))
+    for _ in range(NUM):
+        start_dt = fake.date_between(start_date=date(2021,1,1), end_date=date.today())
+        end_dt   = start_dt + timedelta(days=random.randint(30,365))
         projects.append((
             fake.bs().title(),
             random.choice(client_ids),
@@ -127,56 +111,55 @@ def main():
             random.choice(statuses)
         ))
     cur.executemany(
-        "INSERT INTO projects (name, client_id, start_date, end_date, status) VALUES (%s, %s, %s, %s, %s)",
+        "INSERT INTO projects (name, client_id, start_date, end_date, status) VALUES (%s,%s,%s,%s,%s)",
         projects
     )
-    conn.commit()
 
-    # ── 9) Seed Assignments (1–3 projects per employee) ───────────────
+    # 2d) Assignments (one per loop, up to NUM)
     cur.execute("SELECT id FROM employees")
     emp_ids = [r[0] for r in cur.fetchall()]
     cur.execute("SELECT id FROM projects")
     proj_ids = [r[0] for r in cur.fetchall()]
-
-    assignments = []
-    for emp in emp_ids:
-        for pj in random.sample(proj_ids, k=random.randint(1, 3)):
-            assignments.append((
-                emp,
-                pj,
-                fake.date_between(start_date=date(2021, 1, 1), end_date=date.today()).isoformat(),
-                random.choice(roles)
-            ))
+    assignments = [
+        (
+            random.choice(emp_ids),
+            random.choice(proj_ids),
+            fake.date_between(start_date=date(2021,1,1), end_date=date.today()).isoformat(),
+            random.choice(roles)
+        )
+        for _ in range(NUM)
+    ]
     cur.executemany(
-        "INSERT INTO employee_project_assignments (employee_id, project_id, assigned_on, role_on_project) VALUES (%s, %s, %s, %s)",
+        "INSERT INTO employee_project_assignments (employee_id, project_id, assigned_on, role_on_project) VALUES (%s,%s,%s,%s)",
         assignments
     )
-    conn.commit()
 
-    # ── 10) Seed Skills & Link to Employees ───────────────────────────
-    skill_list = ["Python", "Java", "SQL", "Project Management", "AWS", "Docker", "Kubernetes"]
+    # 2e) Skills
+    skill_names = [fake.unique.word().title() for _ in range(NUM)]
     cur.executemany(
         "INSERT INTO skills (name) VALUES (%s)",
-        [(s,) for s in skill_list]
+        [(s,) for s in skill_names]
     )
-    conn.commit()
 
+    # 2f) Employee‐Skills
     cur.execute("SELECT id FROM skills")
     skill_ids = [r[0] for r in cur.fetchall()]
-    emp_skills = []
-    for emp in emp_ids:
-        for sk in random.sample(skill_ids, k=random.randint(1, 4)):
-            emp_skills.append((emp, sk))
+
+    # Build every possible (employee, skill) pair
+    all_pairs = [(emp, sk) for emp in emp_ids for sk in skill_ids]
+
+    # Sample exactly NUM unique pairs
+    emp_skills = random.sample(all_pairs, NUM)
+
     cur.executemany(
-        "INSERT INTO employee_skills (employee_id, skill_id) VALUES (%s, %s)",
+        "INSERT INTO employee_skills (employee_id, skill_id) VALUES (%s,%s)",
         emp_skills
     )
-    conn.commit()
 
-    # ── 11) Tear down ───────────────────────────────────────────────────
+    # Done
     cur.close()
     conn.close()
-    print("Database seeded: 20 employees, 5 clients, 10 projects (plus assignments and skills).")
+    print(f"🎉 Seeded {NUM} rows into each table.")
 
 if __name__ == "__main__":
     main()

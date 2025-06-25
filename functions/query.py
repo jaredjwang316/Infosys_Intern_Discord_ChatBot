@@ -4,16 +4,25 @@ from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage
 import psycopg2
+from psycopg2 import OperationalError
 
 load_dotenv()
 api_key = os.getenv("GOOGLE_API_KEY")
 model_name = os.getenv("MODEL_NAME")
 
-with open("./database/schema.txt", "r") as f:
-    SCHEMA_TEXT = f.read()
+try:
+    with open("./database/schema.txt", "r") as f:
+        SCHEMA_TEXT = f.read()
+except FileNotFoundError:
+    print("Schema file not found. Please ensure the schema.txt file exists in the database directory.")
+    raise
 
-with open("./database/Schema_test.sql", "r") as f:
-    raw_schema = f.read()
+try:
+    with open("./database/Schema_test.sql", "r") as f:
+        raw_schema = f.read()
+except FileNotFoundError:
+    print("Schema test file not found. Please ensure the Schema_test.sql file exists in the database directory.")
+    raise
 
 table_names = re.findall(
    r"CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?`?([A-Za-z0-9_]+)`?",
@@ -24,22 +33,25 @@ table_names = re.findall(
 allowed_tables = {name.upper() for name in table_names}
 
 # DB config
-load_dotenv()
-db_host = os.getenv("DB_HOST")
-db_port = os.getenv("DB_PORT")
-db_name = os.getenv("DB_NAME")
-db_user = os.getenv("DB_USER")
-db_password = os.getenv("DB_PASSWORD")
+PG_CONFIG = {
+    "host":     os.getenv("DB_HOST"),
+    "port":     os.getenv("DB_PORT", 5432),
+    "user":     os.getenv("DB_USER"),
+    "password": os.getenv("DB_PASSWORD"),
+    "dbname":   os.getenv("DB_NAME"),
+}
 
-# Establish global PostgreSQL connection and cursor
-conn = psycopg2.connect(
-    host=db_host,
-    port=db_port,
-    dbname=db_name,
-    user=db_user,
-    password=db_password
-)
-cur = conn.cursor()
+print("Connecting to Postgres...")
+
+try:
+    conn = psycopg2.connect(**PG_CONFIG)
+    conn.autocommit = True
+    cur  = conn.cursor()
+except OperationalError as e:
+    print("Could not connect to Postgres:", e)
+    raise
+
+print("Connected to Postgres successfully!")
 
 # gemini
 model = ChatGoogleGenerativeAI(
@@ -104,6 +116,7 @@ def generate_query(sql_query):
     response = model.invoke(message).content.strip()
     response = strip_query(response)
 
+    print(response)
 
     count = 0
     while not is_valid_sql(response):
@@ -135,6 +148,8 @@ def generate_query(sql_query):
         """
         response = model.invoke(reprompt_template).content.strip()
         response = strip_query(response)
+
+        print(response)
 
 
     return response
@@ -184,6 +199,8 @@ def retry_query(sql_query, information=None):
         response = model.invoke(reprompt_template).content.strip()
         response = strip_query(response)
 
+        print(response)
+
 
         while not is_valid_sql(response):
             reprompt_template = f"""
@@ -218,6 +235,8 @@ def retry_query(sql_query, information=None):
             """
             response = model.invoke(reprompt_template).content.strip()
             response = strip_query(response)
+
+            print(response)
 
 
         cur.execute(response)
@@ -261,6 +280,8 @@ def retry_query(sql_query, information=None):
         response = model.invoke(retry_template).content.strip()
         response = strip_query(response)
 
+        print(response)
+
 
         while not is_valid_sql(response):
             reprompt_template = f"""
@@ -294,6 +315,8 @@ def retry_query(sql_query, information=None):
             """
             response = model.invoke(reprompt_template).content.strip()
             response = strip_query(response)
+
+            print(response)
 
         
         cur.execute(response)
