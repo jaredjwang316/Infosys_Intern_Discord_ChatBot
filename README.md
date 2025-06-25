@@ -39,7 +39,7 @@ Contains all Python dependencies needed for the project:
 - LangChain ecosystem for AI and embedding features
 - Google Generative AI for Gemini integration
 - MySQL connector for database operations
-- Vector storage libraries (FAISS, Chroma, Annoy)
+- Vector storage libraries (pgVector)
 - Additional utilities (python-dotenv, faker)
 
 ### Database Structure
@@ -71,7 +71,7 @@ Advanced database querying module that:
 Conversation search functionality using vector embeddings:
 - Converts conversation history into searchable documents
 - Uses Google's text-embedding-004 model for embeddings
-- Implements vector search with Annoy (Approximate Nearest Neighbors)
+- Implemented semantic search using pgVector with cosine similarity
 - Supports both timestamped and non-timestamped conversation formats
 - Returns relevant conversation snippets based on search queries
 
@@ -113,10 +113,11 @@ The Discord bot responds to several specific commands:
    GOOGLE_API_KEY=your_gemini_api_key
    DISCORD_BOT_TOKEN=your_discord_bot_token
    MODEL_NAME=gemini-1.5-flash
-   DB_HOST=127.0.0.1
-   DB_USER=root
-   DB_PASS=your_mysql_password
-   DB_NAME=chatops
+   DB_HOST=<endpoint of your database instance>
+   DB_PORT=5432 
+   DB_USER=<master username>
+   DB_PASSWORD=<master password>
+   DB_NAME="postgres"
    ```
 
 2. **Install Dependencies**:
