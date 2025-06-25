@@ -144,7 +144,7 @@ async def on_message(message):
         return
 
     # ---- Follow-up Query Handler (no "query:" prefix) ---------------------
-    if local_memory.get_last_command_type(user_id) == "query" and not user_message.lower().startswith(("ask:", "summary", "search:", "help", "exit", "clear")):
+    if local_memory.get_last_command_type(user_id) == "query" and not user_message.lower().startswith(("ask:", "summary", "search:", "help", "exit", "clear", "show_history", "test", "show_embeds", "gen_chat", "where_am_i")):
         user_query = user_message.strip()
         local_memory.add_message(channel_id, user_id, user_message)
         texts = query_data(user_id, user_query, session_history=local_memory.get_user_query_session_history(user_id))
