@@ -181,7 +181,7 @@ async def on_message(message):
         return
 
     # ---- Follow-up Query Handler (no "query:" prefix) ---------------------
-    if last_command_type.get(user_id) == "query" and not user_message.lower().startswith(("ask:", "summary", "search:", "help", "exit", "clear")):
+    if last_command_type.get(user_id) == "query" and not user_message.lower().startswith(("ask:", "summary", "search:", "help", "exit", "clear", "show_history", "test", "show_embeds", "gen_chat", "where_am_i")):
         user_query = user_message.strip()
         user_query_session_history.setdefault(user_id, [])
         user_query_session_history[user_id].append(user_query)
