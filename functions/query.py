@@ -5,17 +5,24 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage
 import psycopg2
 from psycopg2 import OperationalError
-import sqlalchemy
 
 load_dotenv()
 api_key = os.getenv("GOOGLE_API_KEY")
 model_name = os.getenv("MODEL_NAME")
 
-with open("./database/schema.txt", "r") as f:
-    SCHEMA_TEXT = f.read()
+try:
+    with open("./database/schema.txt", "r") as f:
+        SCHEMA_TEXT = f.read()
+except FileNotFoundError:
+    print("Schema file not found. Please ensure the schema.txt file exists in the database directory.")
+    raise
 
-with open("./database/Schema_test.sql", "r") as f:
-    raw_schema = f.read()
+try:
+    with open("./database/Schema_test.sql", "r") as f:
+        raw_schema = f.read()
+except FileNotFoundError:
+    print("Schema test file not found. Please ensure the Schema_test.sql file exists in the database directory.")
+    raise
 
 table_names = re.findall(
    r"CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?`?([A-Za-z0-9_]+)`?",
@@ -33,7 +40,8 @@ PG_CONFIG = {
     "password": os.getenv("DB_PASSWORD"),
     "dbname":   os.getenv("DB_NAME"),
 }
-print(PG_CONFIG)
+
+print("Connecting to Postgres...")
 
 try:
     conn = psycopg2.connect(**PG_CONFIG)
@@ -42,6 +50,8 @@ try:
 except OperationalError as e:
     print("Could not connect to Postgres:", e)
     raise
+
+print("Connected to Postgres successfully!")
 
 # gemini
 model = ChatGoogleGenerativeAI(

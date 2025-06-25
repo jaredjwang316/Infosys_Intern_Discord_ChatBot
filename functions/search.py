@@ -75,23 +75,11 @@ def search_conversation_quick(short_vectorstore, search_query):
             fallback_response += f"• {role} ({timestamp}): {doc.page_content}\n"
         return fallback_response
 
-def search_conversation(short_vectorstore, search_query, cached_chat_history, channel_id, quick_result):
+def search_conversation(search_query, cached_chat_history, channel_id, quick_result):
     print("Searching using both short-term and long-term memory...")
-    # Add current cached history to long-term storage
-    docs = [
-        Document(
-            page_content=message,
-            metadata={
-                'role': role,
-                'timestamp': time.isoformat() if hasattr(time, 'isoformat') else str(time),
-                'channel_id': channel_id
-            }
-        )
-        for role, message, time in cached_chat_history
-    ]
 
-    if docs:
-        long_vectorstore.add_documents(docs)
+    if cached_chat_history:
+        long_vectorstore.add_documents(cached_chat_history)
 
     print("🔍 Searching long-term memory...")
     long_results = long_vectorstore.similarity_search(search_query, k=5)
