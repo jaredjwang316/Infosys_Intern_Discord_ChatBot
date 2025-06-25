@@ -92,6 +92,8 @@ async def on_message(message):
     summary_match = re.match(r"summary:\s*last (\d+) (minute|hour|day|week|month|year)s?", user_message.lower())
     if summary_match:
         local_memory.add_message(channel_id, user_id, user_message)
+
+        local_memory.store_all_in_long_term_memory()
         num = int(summary_match.group(1))
         unit = summary_match.group(2)
         delta_args = {f"{unit}s": num}
@@ -172,8 +174,8 @@ async def on_message(message):
         await message.channel.send(f"🔎 Search result:\n{quick_result}")
         
         with concurrent.futures.ThreadPoolExecutor() as executor:
-            future = executor.submit(search_conversation, terms, local_memory.get_cached_history_documents(channel_id), channel_id, quick_result)
-            
+            future = executor.submit(search_conversation, terms, local_memory.get_cached_history_documents(channel_id), quick_result)
+
             total_result = None
             try:
                 total_result = future.result(timeout=30)
@@ -237,6 +239,8 @@ async def on_message(message):
     
     # terminates the bot
     if user_message.lower() == "exit":
+        await message.channel.send("🔒 Saving memory and shutting down...")
+        local_memory.store_all_in_long_term_memory()
         await message.channel.send("💀 Goodbye!")
         exit()
 
