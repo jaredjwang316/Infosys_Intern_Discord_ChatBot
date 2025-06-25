@@ -1,3 +1,6 @@
+import matplotlib.pyplot as plt
+import io
+import base64
 import os
 import re
 from dotenv import load_dotenv
@@ -5,6 +8,59 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage
 import psycopg2
 from psycopg2 import OperationalError
+
+
+
+# Determine if a query asks for visualization
+def is_visualization_query(user_query):
+    keywords = ["visualize", "chart", "plot", "bar chart", "pie chart", "line chart", "trend"]
+    return any(k in user_query.lower() for k in keywords)
+
+# Extract preferred chart type
+def extract_chart_type(user_query):
+    if "pie" in user_query.lower():
+        return "pie"
+    elif "line" in user_query.lower() or "trend" in user_query.lower():
+        return "line"
+    elif "bar" in user_query.lower():
+        return "bar"
+    else:
+        return "bar"  # default
+
+def generate_chart_file(rows, columns, chart_type="bar"):
+    import matplotlib.pyplot as plt
+    import io
+
+    if len(columns) < 2 or not rows:
+        return None
+
+    try:
+        x_vals = [str(row[0]) for row in rows]
+        y_vals = [float(row[1]) for row in rows]
+    except (ValueError, IndexError):
+        return None
+
+    fig, ax = plt.subplots()
+    if chart_type == "bar":
+        ax.bar(x_vals, y_vals)
+    elif chart_type == "line":
+        ax.plot(x_vals, y_vals, marker="o")
+    elif chart_type == "pie":
+        ax.pie(y_vals, labels=x_vals, autopct='%1.1f%%')
+    else:
+        return None
+
+    ax.set_title(f"{chart_type.capitalize()} Chart")
+    if chart_type != "pie":
+        ax.set_xlabel(columns[0])
+        ax.set_ylabel(columns[1])
+
+    buf = io.BytesIO()
+    plt.tight_layout()
+    plt.savefig(buf, format='png')
+    plt.close(fig)
+    buf.seek(0)
+    return buf
 
 load_dotenv()
 api_key = os.getenv("GOOGLE_API_KEY")
@@ -432,6 +488,12 @@ def query_data(user_id, user_query, session_history=None):
         lines = [" | ".join(cols)]
         lines += [" | ".join(map(str, row)) for row in rows]
         table = "\n".join(lines)
+
+        if is_visualization_query(user_query):
+            chart_type = extract_chart_type(user_query)
+            chart_file = generate_chart_file(rows, cols, chart_type)
+            if chart_file:
+                return [{"type": "image", "file": chart_file, "filename": "chart.png"}]
         tables = format_table(table)
     texts = list()
     for table in tables:

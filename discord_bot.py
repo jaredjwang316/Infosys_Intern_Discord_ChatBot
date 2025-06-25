@@ -136,10 +136,14 @@ async def on_message(message):
         # Pass session history (list of past queries) to query_data
         texts = query_data(user_id, user_query, session_history=local_memory.get_user_query_session_history(user_id))
 
-        for text in texts:
-            if not text.strip():
-                continue
-            await message.channel.send(text)
+        for item in texts:
+            if isinstance(item, str):
+                if not item.strip():
+                    continue
+                await message.channel.send(item)
+            elif isinstance(item, dict) and item.get("type") == "image":
+                file = discord.File(item["file"], filename=item.get("filename", "chart.png"))
+                await message.channel.send(file=file)
         # Save current message to history as usual
         local_memory.add_message(channel_id, user_name, user_message)
         local_memory.add_message(channel_id, "Bot", str(texts))
@@ -152,10 +156,14 @@ async def on_message(message):
         local_memory.add_message(channel_id, user_id, user_message)
         texts = query_data(user_id, user_query, session_history=local_memory.get_user_query_session_history(user_id))
 
-        for text in texts:
-            if not text.strip():
-                continue
-            await message.channel.send(text)
+        for item in texts:
+            if isinstance(item, str):
+                if not item.strip():
+                    continue
+                await message.channel.send(item)
+            elif isinstance(item, dict) and item.get("type") == "image":
+                file = discord.File(item["file"], filename=item.get("filename", "chart.png"))
+                await message.channel.send(file=file)
 
         # Save current message to history as usual
         local_memory.add_message(channel_id, user_name, user_message)
