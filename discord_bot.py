@@ -8,7 +8,7 @@ import concurrent.futures
 import re
 
 from functions.query import query_data
-from functions.summary import summarize_conversation
+from functions.summary import summarize_conversation, summarize_conversation_by_time
 from functions.search import search_conversation, search_conversation_quick
 from local_memory import LocalMemory
 
@@ -96,8 +96,11 @@ async def on_message(message):
         unit = summary_match.group(2)
         delta_args = {f"{unit}s": num}
         since = now - datetime.timedelta(**delta_args)
-        filtered = local_memory.get_chat_history(channel_id, start_time=since)
-        summary = summarize_conversation(filtered)
+        summary = summarize_conversation_by_time(
+            channel_id,
+            start_time=since,
+            end_time=now
+        )
         response = split_response(summary)
         await message.channel.send(f"📋 Summary (last {num} {unit}{'s' if num > 1 else ''}):\n{response[0]}")
         if len(response) > 1:
@@ -171,6 +174,7 @@ async def on_message(message):
         with concurrent.futures.ThreadPoolExecutor() as executor:
             future = executor.submit(search_conversation, terms, local_memory.get_cached_history_documents(channel_id), channel_id, quick_result)
             
+            total_result = None
             try:
                 total_result = future.result(timeout=30)
                 if total_result:
@@ -181,8 +185,10 @@ async def on_message(message):
                 await message.channel.send(f"❌ Error: {e}")
 
         local_memory.clear_cached_history(channel_id)
-        local_memory.add_message(channel_id, user_name, user_message)
-        local_memory.add_message(channel_id, "Bot", total_result if total_result else quick_result)
+
+        if total_result:
+            local_memory.add_message(channel_id, user_name, user_message)
+            local_memory.add_message(channel_id, "Bot", total_result if total_result else quick_result)
 
         return
 

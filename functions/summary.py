@@ -2,10 +2,33 @@ import os
 from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage
+import psycopg2
+from psycopg2 import OperationalError
+import datetime
 
 load_dotenv()
 api_key = os.getenv("GOOGLE_API_KEY")
 model_name = os.getenv("MODEL_NAME")
+
+PG_CONFIG = {
+    "host":     os.getenv("DB_HOST"),
+    "port":     os.getenv("DB_PORT", 5432),
+    "user":     os.getenv("DB_USER"),
+    "password": os.getenv("DB_PASSWORD"),
+    "dbname":   os.getenv("DB_NAME"),
+}
+
+print("Connecting to Postgres...")
+
+try:
+    conn = psycopg2.connect(**PG_CONFIG)
+    conn.autocommit = True
+    cur  = conn.cursor()
+except OperationalError as e:
+    print("Could not connect to Postgres:", e)
+    raise
+
+print("Connected to Postgres successfully!")
 
 # gemini
 model = ChatGoogleGenerativeAI(
@@ -55,3 +78,22 @@ def summarize_conversation(history):
     ]
     response =  model.invoke(message)
     return response.content.strip()
+
+# def summarize_conversation_by_time(channel_id, start_time, end_time=datetime.datetime.now().utcnow()):
+#     """
+#     Summarize conversation history for a specific channel within a time range.
+#     """
+#     query = """
+#         SELECT sender, content, timestamp
+#         FROM messages
+#         WHERE channel_id = %s AND timestamp >= %s AND timestamp <= %s
+#         ORDER BY timestamp ASC;
+#     """
+#     cur.execute(query, (channel_id, start_time, end_time))
+#     history = cur.fetchall()
+    
+#     if not history:
+#         return "No conversation history found for the specified time range."
+    
+#     summary = summarize_conversation(history)
+#     return summary
