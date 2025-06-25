@@ -199,12 +199,29 @@ class LocalMemory:
 
         if channel_id in self.total_chat_history:
             del self.total_chat_history[channel_id]
-            del self.cached_chat_history[channel_id]
-            del self.user_query_session_history[channel_id]
-            del self.last_command_type[channel_id]
-            print(f"Cleared total history for channel {channel_id}.")
+            print(f"Deleted total_chat_history for channel {channel_id}.")
         else:
-            print(f"No total history found for channel {channel_id}.")
+            print(f"No total_chat_history found for channel {channel_id}.")
+
+        if channel_id in self.cached_chat_history:
+            del self.cached_chat_history[channel_id]
+            print(f"Deleted cached_chat_history for channel {channel_id}.")
+        else:
+            print(f"No cached_chat_history found for channel {channel_id}.")
+
+        if channel_id in self.user_query_session_history:
+            del self.user_query_session_history[channel_id]
+            print(f"Deleted user_query_session_history for channel {channel_id}.")
+        else:
+            print(f"No user_query_session_history found for channel {channel_id}.")
+
+        if channel_id in self.last_command_type:
+            del self.last_command_type[channel_id]
+            print(f"Deleted last_command_type for channel {channel_id}.")
+        else:
+            print(f"No last_command_type found for channel {channel_id}.")
+
+        print(f"Cleared total history for channel {channel_id}.")
 
     def clear_all_cached_histories(self):
         """
