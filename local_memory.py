@@ -29,13 +29,13 @@ class LocalMemory:
             model="models/text-embedding-004"
         )
 
-    def _find_last_command_type(self, doc):
+    def _find_last_command_type(self, user_id, doc):
         """
         Determines the type of command based on the content of the document.
         """
 
         if doc.metadata.get("user") == "Bot":
-            return None
+            return self.last_command_type[user_id]
         else:
             content = doc.page_content.strip().lower()
             if content.startswith("ask:"):
@@ -63,7 +63,7 @@ class LocalMemory:
             elif content == "help":
                 return "help"
             else:
-                return None
+                return self.last_command_type[user_id]
 
     def _add_message_to_histories(self, channel_id, user_id, doc):
         """
@@ -79,7 +79,7 @@ class LocalMemory:
         self.total_chat_history[channel_id].add_documents([doc])
         self.cached_chat_history[channel_id].add_documents([doc])
 
-        self.last_command_type[user_id] = self._find_last_command_type(doc)
+        self.last_command_type[user_id] = self._find_last_command_type(user_id, doc)
         if self.last_command_type[user_id] == "query":
             self.user_query_session_history[user_id].append(doc)
         else:
