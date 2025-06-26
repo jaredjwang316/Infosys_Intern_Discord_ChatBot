@@ -104,11 +104,15 @@ def summarize_conversation_by_time(channel_id, start_time, end_time=datetime.dat
     
     try:
         formatted_history = []
-
         cur.execute(new_format_query, (str(channel_id), start_time, end_time))
         new_messages = cur.fetchall()
         
         print(f"🔍 Found {len(new_messages)} messages matching all criteria")
+        
+        # If no messages in time range, return none found message
+        if not new_messages:
+            print("No conversation history found for this channel in the specified time range.")
+            return "No conversation history found for this channel in the specified time range."
         
         for document, metadata, timestamp in new_messages:
             role = metadata.get('role', 'Unknown')

@@ -59,7 +59,7 @@ class LocalMemory:
         Determines the type of command based on the content of the document.
         """
 
-        if doc.metadata.get("user") == "Bot":
+        if str(doc.metadata.get("user")).lower() == "bot":
             return self.last_command_type[user_id]
         else:
             content = doc.page_content.strip().lower()
@@ -204,22 +204,18 @@ class LocalMemory:
         cached_history = self.cached_chat_history[channel_id]
         documents = []
         for doc_id, doc in cached_history.store.items():
-            # Convert datetime to string for JSON serialization and add required metadata
             metadata = doc['metadata'].copy()
-            
-            # Convert timestamp to string if it's a datetime object
+
             if 'timestamp' in metadata and isinstance(metadata['timestamp'], datetime.datetime):
                 metadata['timestamp'] = metadata['timestamp'].isoformat()
-            
-            # Add channel_id and role for the summary function to find
+
             metadata['channel_id'] = str(channel_id)
-            
-            # Convert user to role format expected by summary function
+
             user = metadata.get('user', 'Unknown')
             if str(user).lower() == 'bot':
                 metadata['role'] = 'bot'
             else:
-                metadata['role'] = str(user)  # This will be the user ID or mention
+                metadata['role'] = str(user)
             
             documents.append(Document(page_content=doc['text'], metadata=metadata))
 
