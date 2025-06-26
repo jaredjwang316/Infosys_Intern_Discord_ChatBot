@@ -1,6 +1,3 @@
-import matplotlib.pyplot as plt
-import io
-import base64
 import os
 import re
 from dotenv import load_dotenv
@@ -27,7 +24,36 @@ def extract_chart_type(user_query):
     else:
         return "bar"  # default
 
-def generate_chart_file(rows, columns, chart_type="bar"):
+def generate_chart_title(user_query, columns):
+    prompt = f"""
+    You are generating a human-friendly chart title based on a user request and SQL result columns.
+
+    ### YOUR TASK ###
+    - Write a chart title that is natural and descriptive.
+    - Avoid using vague column names like "count", "total", "id", or abbreviations.
+    - Replace technical or generic terms with human-readable descriptions.
+    - Do NOT simply return "count over role" or similar titles.
+    - Instead, describe what the data actually shows.
+
+    For example:
+    - If columns are "role" and "count", and the user asked about employee roles, the title should be "Number of Employees by Role".
+    - If columns are "hire_month" and "total_hires", the title could be "Hiring Trend by Month".
+
+    ### USER QUERY ###
+    {user_query}
+
+    ### COLUMNS ###
+    X-axis: {columns[0]}
+    Y-axis: {columns[1]}
+
+    ### TITLE ###
+    Now return ONLY the descriptive chart title.
+    """
+    message = [HumanMessage(content=prompt)]
+    title = model.invoke(message).content.strip()
+    return title
+
+def generate_chart_file(rows, columns, chart_type="bar", user_query=None):
     import matplotlib.pyplot as plt
     import io
 
@@ -40,8 +66,6 @@ def generate_chart_file(rows, columns, chart_type="bar"):
     except (ValueError, IndexError):
         return None
     
-    # Dynamically adjust figure width based on number of x-values
-    fig_width = max(10, len(x_vals) * 0.4)  # Scale up for large x_vals
     fig, ax = plt.subplots(figsize=(10, 6))
     if chart_type == "bar":
         ax.bar(x_vals, y_vals)
@@ -52,6 +76,8 @@ def generate_chart_file(rows, columns, chart_type="bar"):
     else:
         return None
 
+    title = generate_chart_title(user_query, columns)
+    ax.set_title(title)
     ax.set_title(f"{columns[1]} over {columns[0]}")
     if chart_type != "pie":
         ax.set_xlabel(columns[0])
@@ -497,7 +523,7 @@ def query_data(user_id, user_query, session_history=None):
 
         if is_visualization_query(user_query):
             chart_type = extract_chart_type(user_query)
-            chart_file = generate_chart_file(rows, cols, chart_type)
+            chart_file = generate_chart_file(rows, cols, chart_type, user_query=user_query)
             if chart_file:
                 return [{"type": "image", "file": chart_file, "filename": "chart.png"}]
         tables = format_table(table)
