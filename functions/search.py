@@ -1,11 +1,7 @@
 import os
 from dotenv import load_dotenv
-import asyncio
 from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
-from langchain.schema import Document
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.vectorstores import FAISS, Chroma, Annoy, InMemoryVectorStore, PGVector
-from langchain.chains.retrieval_qa.base import RetrievalQA
+from langchain_community.vectorstores import PGVector
 
 load_dotenv()
 api_key = os.getenv("GOOGLE_API_KEY")
