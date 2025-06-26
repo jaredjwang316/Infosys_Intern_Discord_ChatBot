@@ -2,6 +2,31 @@ from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmb
 from langchain_core.vectorstores import InMemoryVectorStore
 from langchain.schema import Document
 import datetime
+from langchain_community.vectorstores import PGVector
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+api_key = os.getenv("GOOGLE_API_KEY")
+
+db_host = os.getenv("DB_HOST")
+db_port = os.getenv("DB_PORT")
+db_name = os.getenv("DB_NAME")
+db_user = os.getenv("DB_USER")
+db_password = os.getenv("DB_PASSWORD")
+
+connection_string = f"postgresql+psycopg2://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
+
+embedding_model = GoogleGenerativeAIEmbeddings(
+    model="models/text-embedding-004"
+)
+
+long_vectorstore = PGVector(
+    collection_name="chat_embeddings",
+    connection_string=connection_string,
+    embedding_function=embedding_model,
+    distance_strategy="cosine"
+)
 
 class LocalMemory:
     """
@@ -177,7 +202,28 @@ class LocalMemory:
             return []
         
         cached_history = self.cached_chat_history[channel_id]
-        return list(cached_history.store.values())
+        documents = []
+        for doc_id, doc in cached_history.store.items():
+            # Convert datetime to string for JSON serialization and add required metadata
+            metadata = doc['metadata'].copy()
+            
+            # Convert timestamp to string if it's a datetime object
+            if 'timestamp' in metadata and isinstance(metadata['timestamp'], datetime.datetime):
+                metadata['timestamp'] = metadata['timestamp'].isoformat()
+            
+            # Add channel_id and role for the summary function to find
+            metadata['channel_id'] = str(channel_id)
+            
+            # Convert user to role format expected by summary function
+            user = metadata.get('user', 'Unknown')
+            if str(user).lower() == 'bot':
+                metadata['role'] = 'bot'
+            else:
+                metadata['role'] = str(user)  # This will be the user ID or mention
+            
+            documents.append(Document(page_content=doc['text'], metadata=metadata))
+
+        return documents
     
     def clear_cached_history(self, channel_id):
         """
@@ -199,28 +245,13 @@ class LocalMemory:
 
         if channel_id in self.total_chat_history:
             del self.total_chat_history[channel_id]
-            print(f"Deleted total_chat_history for channel {channel_id}.")
-        else:
-            print(f"No total_chat_history found for channel {channel_id}.")
-
         if channel_id in self.cached_chat_history:
             del self.cached_chat_history[channel_id]
-            print(f"Deleted cached_chat_history for channel {channel_id}.")
-        else:
-            print(f"No cached_chat_history found for channel {channel_id}.")
-
         if channel_id in self.user_query_session_history:
             del self.user_query_session_history[channel_id]
-            print(f"Deleted user_query_session_history for channel {channel_id}.")
-        else:
-            print(f"No user_query_session_history found for channel {channel_id}.")
-
         if channel_id in self.last_command_type:
             del self.last_command_type[channel_id]
-            print(f"Deleted last_command_type for channel {channel_id}.")
-        else:
-            print(f"No last_command_type found for channel {channel_id}.")
-
+            
         print(f"Cleared total history for channel {channel_id}.")
 
     def clear_all_cached_histories(self):
@@ -288,3 +319,35 @@ class LocalMemory:
             paired_data.append((doc_id, document['text'], document['vector']))
 
         return paired_data
+
+    def store_in_long_term_memory(self, channel_id):
+        """
+        Stores the cached chat history into long-term memory (PostgreSQL vector store).
+        This is used to persist chat history for future retrieval.
+        """
+
+        if channel_id not in self.cached_chat_history:
+            print(f"No cached history found for channel {channel_id}. Nothing to store.")
+            return
+        
+        documents = self.get_cached_history_documents(channel_id)
+
+        if documents:
+            long_vectorstore.add_documents(documents)
+            self.clear_cached_history(channel_id)
+            print(f"Stored {len(documents)} documents from channel {channel_id} into long-term memory.")
+        else:
+            print(f"No documents to store for channel {channel_id}.")
+
+    def store_all_in_long_term_memory(self):
+        """
+        Stores all cached chat histories across all channels into long-term memory.
+        This is used to persist all chat history for future retrieval.
+        """
+
+        channel_ids = list(self.cached_chat_history.keys())
+        
+        for channel_id in channel_ids:
+            self.store_in_long_term_memory(channel_id)
+        
+        print("Stored all cached histories into long-term memory.")
