@@ -92,12 +92,14 @@ async def on_message(message):
     summary_match = re.match(r"summary:\s*last (\d+) (minute|hour|day|week|month|year)s?", user_message.lower())
     if summary_match:
         local_memory.add_message(channel_id, user_id, user_message)
-
-        local_memory.store_all_in_long_term_memory()
+        
         num = int(summary_match.group(1))
         unit = summary_match.group(2)
         delta_args = {f"{unit}s": num}
         since = now - datetime.timedelta(**delta_args)
+
+        local_memory.store_all_in_long_term_memory()
+
         summary = summarize_conversation_by_time(
             channel_id,
             start_time=since,
@@ -108,7 +110,8 @@ async def on_message(message):
         if len(response) > 1:
             for part in response[1:]:
                 await message.channel.send(part)
-        local_memory.add_message(channel_id, "Bot", summary)
+
+        local_memory.add_message(channel_id, "Bot", " ".join(response))
         return
     
     # ---- Summary command ------------------------
