@@ -137,12 +137,12 @@ async def on_message(message):
         texts = query_data(user_id, user_query, session_history=local_memory.get_user_query_session_history(user_id))
 
         for item in texts:
-            if isinstance(item, str):
+            if isinstance(item, str):   #If the content is a text string, send it as a normal message.
                 if not item.strip():
                     continue
                 await message.channel.send(item)
-            elif isinstance(item, dict) and item.get("type") == "image":
-                file = discord.File(item["file"], filename=item.get("filename", "chart.png"))
+            elif isinstance(item, dict) and item.get("type") == "image":    #If it's a chart image, send it as an image file
+                file = discord.File(item["file"], filename=item.get("filename", "chart.png"))   #sends that image as a file to the Discord channel.
                 await message.channel.send(file=file)
         # Save current message to history as usual
         local_memory.add_message(channel_id, user_name, user_message)

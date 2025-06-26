@@ -141,6 +141,7 @@ def generate_query(sql_query):
 
     db_schema = SCHEMA_TEXT
     global tips
+    tips = "PostgreSQL does not support strftime(). Use TO_CHAR(date_column, 'YYYY-MM') instead to format dates."
     if tips:
         query_tips = f"\n### TIPS ###\n{tips}\n"
     else:
