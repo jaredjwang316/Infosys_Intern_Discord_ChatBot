@@ -104,59 +104,22 @@ def summarize_conversation_by_time(channel_id, start_time, end_time=datetime.dat
     
     try:
         formatted_history = []
-        
-        # Debug: Print the exact parameters
-        print(f"🔍 Searching for messages in channel: {channel_id}")
-        print(f"🔍 Time range: {start_time} to {end_time}")
-        
-        # Debug: Check what messages exist for this channel (regardless of time)
-        cur.execute("""
-            SELECT COUNT(*) as total_messages,
-                   MIN((cmetadata->>'timestamp')::timestamp) as earliest,
-                   MAX((cmetadata->>'timestamp')::timestamp) as latest
-            FROM langchain_pg_embedding 
-            WHERE cmetadata->>'channel_id' = %s 
-            AND cmetadata->>'timestamp' IS NOT NULL;
-        """, (str(channel_id),))
-        channel_stats = cur.fetchone()
-        total_msgs, earliest, latest = channel_stats
-        print(f"🔍 Channel has {total_msgs} total messages from {earliest} to {latest}")
-        
-        # Get new format messages (with timestamp and channel filtering)
+
         cur.execute(new_format_query, (str(channel_id), start_time, end_time))
         new_messages = cur.fetchall()
         
         print(f"🔍 Found {len(new_messages)} messages matching all criteria")
         
-        # If no messages in time range, offer alternative
-        if not new_messages:
-            print(f"⚠️  No messages found in specified time range!")
-            print(f"   Would you like to see messages from {earliest} to {latest} instead?")
-            
-            # Get all messages for this channel instead
-            cur.execute("""
-                SELECT document, cmetadata, 
-                       (cmetadata->>'timestamp')::timestamp as parsed_timestamp
-                FROM langchain_pg_embedding 
-                WHERE cmetadata->>'channel_id' = %s 
-                AND cmetadata->>'timestamp' IS NOT NULL
-                ORDER BY (cmetadata->>'timestamp')::timestamp ASC;
-            """, (str(channel_id),))
-            new_messages = cur.fetchall()
-            print(f"🔍 Using all {len(new_messages)} available messages for this channel")
-        
         for document, metadata, timestamp in new_messages:
             role = metadata.get('role', 'Unknown')
             
             formatted_history.append((role, document, timestamp))
-        
-        # Sort all messages by timestamp
+
         formatted_history.sort(key=lambda x: x[2])
         
         if not formatted_history:
             return "No conversation history found for this channel."
-        
-        # Pass the formatted history to the existing summarize_conversation function
+
         print(f"📊 Summarizing {len(formatted_history)} messages...")
         summary = summarize_conversation(formatted_history)
         return summary

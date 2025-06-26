@@ -8,7 +8,7 @@ import concurrent.futures
 import re
 
 from functions.query import query_data
-from functions.summary import summarize_conversation
+from functions.summary import summarize_conversation, summarize_conversation_by_time
 from functions.search import search_conversation, search_conversation_quick
 from local_memory import LocalMemory
 
