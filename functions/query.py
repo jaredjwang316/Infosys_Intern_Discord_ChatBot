@@ -39,8 +39,10 @@ def generate_chart_file(rows, columns, chart_type="bar"):
         y_vals = [float(row[1]) for row in rows]
     except (ValueError, IndexError):
         return None
-
-    fig, ax = plt.subplots()
+    
+    # Dynamically adjust figure width based on number of x-values
+    fig_width = max(10, len(x_vals) * 0.4)  # Scale up for large x_vals
+    fig, ax = plt.subplots(figsize=(10, 6))
     if chart_type == "bar":
         ax.bar(x_vals, y_vals)
     elif chart_type == "line":
@@ -50,10 +52,13 @@ def generate_chart_file(rows, columns, chart_type="bar"):
     else:
         return None
 
-    ax.set_title(f"{chart_type.capitalize()} Chart")
+    ax.set_title(f"{columns[1]} over {columns[0]}")
     if chart_type != "pie":
         ax.set_xlabel(columns[0])
         ax.set_ylabel(columns[1])
+
+        # Rotate labels and align to the right
+        ax.tick_params(axis='x', labelrotation=45)
 
     buf = io.BytesIO()
     plt.tight_layout()
