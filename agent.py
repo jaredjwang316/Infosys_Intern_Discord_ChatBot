@@ -6,6 +6,7 @@ from langgraph.graph.message import add_messages
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.schema import Document
 import datetime
+import concurrent.futures
 
 from functions.query import query_data
 from functions.summary import summarize_conversation, summarize_conversation_by_time
@@ -78,7 +79,7 @@ def summarize_by_time(channel_id: str, rollback_time: int, time_unit: str) -> st
     since = now - datetime.timedelta(**delta_args)
     return summarize_conversation_by_time(local_memory.get_chat_history(channel_id), since, now)
 
-def search(channel_id: str, query: str) -> list[Document]:
+def search(channel_id: str, query: str) -> str:
     """
     Search the conversation history for a given channel.
 
@@ -86,9 +87,27 @@ def search(channel_id: str, query: str) -> list[Document]:
         channel_id (str): The ID of the channel to search.
         query (str): The search query.
     Returns:
-        list[Document]: A list of documents containing the search results.
+        str: A list of messages containing the search results.
     """
     
-    return search_conversation(local_memory.get_chat_history(channel_id), query)
+    quick_result = search_conversation_quick(local_memory.get_vectorstore(channel_id), query)
+    
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        future = executor.submit(search_conversation, query, local_memory.get_cached_history_documents(channel_id), quick_result)
+
+        total_result = None
+        try:
+            total_result = future.result(timeout=30)
+        except concurrent.futures.TimeoutError:
+            print("Long search operation timed out, using only quick response instead.")
+        except Exception as e:
+            print(f"Error during search operation: {e}")
+
+    local_memory.clear_cached_history(channel_id)
+
+    if total_result:
+        local_memory.add_message(channel_id, "Bot", total_result if total_result else quick_result)
+
+    return total_result if total_result else quick_result
 
 # TODO: Actually look at the search, and implement the rest of the methods and then make the agent runnable with nodes and conditional edges.
