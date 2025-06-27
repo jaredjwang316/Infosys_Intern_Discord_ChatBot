@@ -85,6 +85,7 @@ def summarize_conversation(history):
     response =  model.invoke(message)
     return response.content.strip()
 
+
 def summarize_conversation_by_time(channel_id, start_time, end_time=datetime.datetime.now()):
     """
     Summarize conversation history for a specific channel within a time range.

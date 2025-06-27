@@ -12,3 +12,6 @@ faker
 pgvector
 matplotlib
 pybase64
+langgraph
+langsmith
+langchain[google-genai]
