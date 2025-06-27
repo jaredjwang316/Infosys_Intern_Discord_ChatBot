@@ -26,18 +26,19 @@ def extract_chart_type(user_query):
 
 def generate_chart_title(user_query, columns):
     prompt = f"""
-    You are generating a human-friendly chart title based on a user request and SQL result columns.
+    Generate a clear, human-readable chart title based on the user's request and the two database columns 
+    used for the chart.
 
-    ### YOUR TASK ###
-    - Write a chart title that is natural and descriptive.
-    - Avoid using vague column names like "count", "total", "id", or abbreviations.
-    - Replace technical or generic terms with human-readable descriptions.
-    - Do NOT simply return "count over role" or similar titles.
-    - Instead, describe what the data actually shows.
+    ### INSTRUCTIONS ###
+    - Do NOT use raw column names like 'count', 'id', 'role', 'hire_month' as-is.
+    - Replace technical terms and abbreviations with descriptive, natural phrases.
+    - Avoid generic phrases like "count over role", "total over type", or "value by category".
+    - DO NOT use words like "count", "total", "id", "data", or "chart" in the title unless absolutely necessary.
+    - DO NOT repeat column names exactly as they appear.
+    - The title must make sense to someone with no knowledge of SQL or databases.
+    - Make it sound like a real chart you'd see in a report or dashboard.
+    - Use proper capitalization and spacing.
 
-    For example:
-    - If columns are "role" and "count", and the user asked about employee roles, the title should be "Number of Employees by Role".
-    - If columns are "hire_month" and "total_hires", the title could be "Hiring Trend by Month".
 
     ### USER QUERY ###
     {user_query}
@@ -47,7 +48,7 @@ def generate_chart_title(user_query, columns):
     Y-axis: {columns[1]}
 
     ### TITLE ###
-    Now return ONLY the descriptive chart title.
+    Only return the generated chart title as a single line of text.
     """
     message = [HumanMessage(content=prompt)]
     title = model.invoke(message).content.strip()
