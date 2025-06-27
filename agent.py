@@ -91,3 +91,4 @@ def search(channel_id: str, query: str) -> list[Document]:
     
     return search_conversation(local_memory.get_chat_history(channel_id), query)
 
+# TODO: Actually look at the search, and implement the rest of the methods and then make the agent runnable with nodes and conditional edges.
