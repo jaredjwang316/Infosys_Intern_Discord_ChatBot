@@ -1,12 +1,12 @@
 import os
 from typing import Annotated
 from typing_extensions import TypedDict
-from langgraph.graph import StateGraph, START
+from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 from langchain.schema import Document
-from langgraph.prebuilt import ToolNode
+from langgraph.prebuilt import ToolNode, tools_condition
 import datetime
 import concurrent.futures
 
@@ -170,7 +170,7 @@ def router(state: State) -> str:
     last_message = state["messages"][-1]
     
     if last_message.tool_calls:
-        return "tool_executer"
+        return "tools"
     else:
         return "generate_response"
 
@@ -205,8 +205,8 @@ def generate_response(state: State) -> str:
 
     return response.content.strip()
 
-tool_executer_node = ToolNode(
-    name="tool_executer",
+tools = ToolNode(
+    name="tools",
     tools=[
         query,
         summarize,
@@ -215,3 +215,23 @@ tool_executer_node = ToolNode(
     ]
 )
 
+builder = StateGraph(State)
+
+builder.add_node("conductor", conductor)
+# builder.add_node("router", router)
+builder.add_node("tools", tools)
+builder.add_node("generate_response", generate_response)
+
+builder.add_edge(START, "conductor")
+# builder.add_edge("conductor", "router")
+builder.add_conditional_edges(
+    source="conductor",
+    path=router,
+    path_map={
+        "conductor": "conductor",
+        "tools": "tools",
+        "generate_response": "generate_response",
+    }
+)
+builder.add_edge("tools", "conductor")
+builder.add_edge("generate_response", END)
