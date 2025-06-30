@@ -408,8 +408,8 @@ def retry_query(sql_query, information=None):
             print(response)
 
         
-        cur.execute(response)
-        rows = cur.fetchall()
+        cur.execute(response)   #executes the query against the live database.
+        rows = cur.fetchall()   #retrieves all the rows returned by the executed query.
         count += 1
 
     if not rows:
