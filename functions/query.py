@@ -472,6 +472,15 @@ def format_table(table):
         formatted_lines.append(current_chunk)
     return formatted_lines
 
+def save_to_long_term_memory(role, content):
+    try:
+        cur.execute("""
+            INSERT INTO chat_embeddings (role, content)
+            VALUES (%s, %s)
+        """, (role, content))
+    except Exception as e:
+        print("❌ Failed to save to long-term memory:", e)
+
 def query_data(user_id, user_query, session_history=None):
     # Create a contextual prompt using the session history (previous queries in the session)
     contextualized_query = user_query
@@ -518,15 +527,20 @@ def query_data(user_id, user_query, session_history=None):
         }
 
         cols = [desc[0] for desc in cur.description]
-        lines = [" | ".join(cols)]
-        lines += [" | ".join(map(str, row)) for row in rows]
-        table = "\n".join(lines)
+
+        # Save long-term memory
+        save_to_long_term_memory("user", user_query)
+        save_to_long_term_memory("bot", sql_query)
 
         if is_visualization_query(user_query):
             chart_type = extract_chart_type(user_query)
             chart_file = generate_chart_file(rows, cols, chart_type, user_query=user_query)
             if chart_file:
                 return [{"type": "image", "file": chart_file, "filename": "chart.png"}]
+
+        lines = [" | ".join(cols)]
+        lines += [" | ".join(map(str, row)) for row in rows]
+        table = "\n".join(lines)
         tables = format_table(table)
     texts = list()
     for table in tables:
