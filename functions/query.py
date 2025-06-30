@@ -473,7 +473,7 @@ def format_table(table):
     return formatted_lines
 
 def save_to_long_term_memory(role, content):
-    if not content or role != "user":
+    if not content or role not in ("user", "bot"):
         return
     else:
         try:
@@ -544,6 +544,11 @@ def query_data(user_id, user_query, session_history=None):
         lines += [" | ".join(map(str, row)) for row in rows]
         table = "\n".join(lines)
         tables = format_table(table)
+
+        # Save long-term memory for bot response (the textual query results)
+        bot_response_text = "\n".join(tables)
+        save_to_long_term_memory("bot", bot_response_text)
+
     texts = list()
     for table in tables:
         texts.append("```" + table + "```")
