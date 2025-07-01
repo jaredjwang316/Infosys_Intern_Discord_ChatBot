@@ -5,6 +5,7 @@ from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
+from langchain_core.tools import tool
 from langchain.schema import Document
 from langgraph.prebuilt import ToolNode, tools_condition
 import datetime
@@ -28,6 +29,7 @@ llm = ChatGoogleGenerativeAI(
 
 local_memory = LocalMemory()
 
+@tool
 def query(user_id: str, user_query: str) -> list[str]:
     """
     Query the SQL database with the user's query.
@@ -41,6 +43,7 @@ def query(user_id: str, user_query: str) -> list[str]:
     
     return query_data(user_id, user_query, local_memory.get_user_query_session_history(user_id))
 
+@tool
 def summarize(channel_id: str) -> str:
     """
     Summarize the conversation history for a given channel.
@@ -53,6 +56,7 @@ def summarize(channel_id: str) -> str:
     
     return summarize_conversation(local_memory.get_chat_history(channel_id))
 
+@tool
 def summarize_by_time(channel_id: str, rollback_time: int, time_unit: str) -> str:
     """
     Summarize the conversation history for a given channel within a time range.
@@ -66,10 +70,11 @@ def summarize_by_time(channel_id: str, rollback_time: int, time_unit: str) -> st
     """
 
     now = datetime.datetime.now()
-    delta_args = {f"{time_unit}s": rollback_time}
+    delta_args = {f"{time_unit}": rollback_time}
     since = now - datetime.timedelta(**delta_args)
     return summarize_conversation_by_time(local_memory.get_chat_history(channel_id), since, now)
 
+@tool
 def search(channel_id: str, query: str) -> str:
     """
     Search the conversation history for a given channel.
@@ -111,8 +116,8 @@ class State(TypedDict):
     """
     State for the agent graph.
     """
-    messages: list[str]
-    current_user = str
+    messages: Annotated[list, add_messages]
+    current_user: str
     current_channel: str
 
 def conductor(state: State) -> dict:
@@ -126,33 +131,64 @@ def conductor(state: State) -> dict:
     """
     if not state["messages"]:
         state["messages"] = []
-    local_memory.add_message(state["current_channel"], state["current_user"], state["messages"][-1])
 
-    full_prompt = f"""
-    You are an intelligent assistant that decides how to respond to user queries. 
-    Given the latest user message and the conversation context, determine whether you can answer directly or if you need to use a tool (such as querying a database, searching conversation history, or summarizing previous messages).
-    If the user asks for information retrieval, data lookup, or summary, consider using the appropriate tool.
-    If the query is general, conversational, or does not require external data, respond directly.
-    Always explain your reasoning briefly before taking action.
+    last_message = state["messages"][-1]
+    if hasattr(last_message, 'content'):
+        last_message_content = last_message.content
+    else:
+        last_message_content = str(last_message)
+    local_memory.add_message(state["current_channel"], state["current_user"], last_message_content)
+    print(f"🔍 Conductor invoked with last message: {last_message_content}")
 
-    Current conversation context:
+    system_prompt = f"""
+    You are an intelligent assistant conductor with access to tools. 
+    
+    IMPORTANT: Only use tools when the user explicitly requests information that requires them.
+    
+    Current channel ID: {state["current_channel"]}
+    Current user: {state["current_user"]}
+    
+    WHEN TO USE TOOLS:
+    - "summarize conversation history for last X days/hours" → Use summarize_by_time tool
+    - "search for something" → Use search tool  
+    - "query database" or specific data requests → Use query tool
+    - "general summary" → Use summarize tool
+    
+    WHEN NOT TO USE TOOLS:
+    - Greetings like "hello", "good afternoon", "hi"
+    - General conversation or questions about yourself
+    - Simple responses that don't require data lookup
+    
+    For simple greetings and conversation, respond directly without using tools.
+    
+    User's message: "{last_message_content}"
+    
+    If this is a simple greeting or conversation, respond directly. 
+    If this requires database/search/summary operations, use the appropriate tool.
 
+    Recent Conversation History:
     """
 
-    for role, msg, _ in local_memory.get_chat_history(state["current_channel"]):
-        full_prompt += f"{role}: {msg}\n"
+    for role, msg, _ in local_memory.get_chat_history(state["current_channel"])[-20:-1] if len(local_memory.get_chat_history(state["current_channel"])) > 20 else local_memory.get_chat_history(state["current_channel"]):
+        system_prompt += f"{role}: {msg}\n"
 
-    msg = HumanMessage(
-        content=full_prompt
+    system_prompt = SystemMessage(
+        content=system_prompt
     )
 
-    response = llm.invoke([msg])
+    human_message = HumanMessage(
+        content=last_message_content
+    )
+
+    messages = [system_prompt, human_message]
+
+    response = llm_with_tools.invoke(messages)
+
+    print(f"🔍 Conductor response: {response.content.strip()}")
 
     return {
-        "messages": state["messages"].append(response.content.strip()),
-        "current_user": state["current_user"],
-        "current_channel": state["current_channel"]
-        }
+        "messages": [response]
+    }
 
 def router(state: State) -> str:
     """
@@ -163,10 +199,7 @@ def router(state: State) -> str:
     Returns:
         str: The next action to take, which can be a tool name or a direct response.
     """
-    
-    if not state["messages"]:
-        return "conductor"
-    
+
     last_message = state["messages"][-1]
     
     if last_message.tool_calls:
@@ -174,36 +207,47 @@ def router(state: State) -> str:
     else:
         return "generate_response"
 
-def generate_response(state: State) -> str:
+def generate_response(state: State) -> dict:
     """
     Generate a response based on the current state of the conversation.
+    """
+    user_query = ""
+    tool_results = ""
+    conversation_history = ""
+    
+    for msg in state["messages"]:
+        if hasattr(msg, '__class__'):
+            if msg.__class__.__name__ == 'HumanMessage' and hasattr(msg, 'content'):
+                user_query = msg.content
+                conversation_history += f"User: {msg.content}\n"
+            elif msg.__class__.__name__ == 'AIMessage' and hasattr(msg, 'content'):
+                if msg.content and "Tool Calls:" not in msg.content:
+                    conversation_history += f"Assistant: {msg.content}\n"
+            elif msg.__class__.__name__ == 'ToolMessage' and hasattr(msg, 'content'):
+                tool_results += f"{msg.content}\n"
 
-    Args:
-        state (State): The current state of the conversation.
-    Returns:
-        str: The generated response from the LLM.
+    # Create a clean, simple prompt
+    final_prompt = f"""
+    User's original question: {user_query}
+    
+    Tool results: {tool_results}
+    
+    Previous conversation:
+    {conversation_history}
+    
+    Please provide a clear, helpful final response to the user's question using the tool results:
     """
 
-    full_prompt = f"""
-    You have gathered all the necessary information from available tools and the previous conversation context. 
-    Now, compose a clear and concise final response to the user, directly addressing their query using the information you have found. 
-    Do not mention the use of tools or internal processes—just provide the answer in a helpful and friendly manner.
-
-    Current conversation context:
-
-    """
-
-    full_prompt += "\n".join(state["messages"]) + "\n"
-    full_prompt += "\n\nYour Response:\n"
-    
-    messages = [
-        HumanMessage(content=full_prompt)
-    ]
-    
-    response = llm.invoke(messages)
-    local_memory.add_message(state["current_channel"], 'Bot', response.content.strip())
-
-    return response.content.strip()
+    try:
+        response = llm.invoke([HumanMessage(content=final_prompt)])
+        local_memory.add_message(state["current_channel"], 'Bot', response.content.strip())
+        return {"messages": [response]}
+    except Exception as e:
+        print(f"❌ ERROR: {e}")
+        fallback_response = AIMessage(
+            content="I apologize, but I'm experiencing technical difficulties. Please try your request again."
+        )
+        return {"messages": [fallback_response]}
 
 tools = ToolNode(
     name="tools",
@@ -218,20 +262,19 @@ tools = ToolNode(
 builder = StateGraph(State)
 
 builder.add_node("conductor", conductor)
-# builder.add_node("router", router)
 builder.add_node("tools", tools)
 builder.add_node("generate_response", generate_response)
 
-builder.add_edge(START, "conductor")
-# builder.add_edge("conductor", "router")
+builder.set_entry_point("conductor")
 builder.add_conditional_edges(
     source="conductor",
     path=router,
     path_map={
-        "conductor": "conductor",
         "tools": "tools",
         "generate_response": "generate_response",
     }
 )
 builder.add_edge("tools", "conductor")
 builder.add_edge("generate_response", END)
+
+agent_graph = builder.compile()
