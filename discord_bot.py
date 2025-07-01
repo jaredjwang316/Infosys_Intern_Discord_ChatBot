@@ -2,7 +2,7 @@ import os
 import discord
 
 from dotenv import load_dotenv
-from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
+from langchain_google_genai import ChatGoogleGenerativeAI
 import datetime
 import concurrent.futures
 import re
@@ -10,7 +10,9 @@ import re
 from functions.query import query_data
 from functions.summary import summarize_conversation, summarize_conversation_by_time
 from functions.search import search_conversation, search_conversation_quick
+from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 from local_memory import LocalMemory
+from agent import agent_graph, local_memory
 
 load_dotenv()
 api_key       = os.getenv("GOOGLE_API_KEY")
@@ -31,15 +33,13 @@ model = ChatGoogleGenerativeAI(
     max_retries=2
 )
 
-embedding_model = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004")
-
 # ── Discord client setup ──────────────────────────────────────────────────────
 intents = discord.Intents.default()
 intents.message_content = True
 client = discord.Client(intents=intents)
 
-# Memory: {user_id: [(role, message, timestamp)]}
-local_memory = LocalMemory()
+# # Memory: {user_id: [(role, message, timestamp)]}
+# local_memory = LocalMemory()
 
 def split_response(response, line_split=True):
     max_length = 1900
@@ -88,122 +88,122 @@ async def on_message(message):
     channel_id   = message.channel.id   #The unique ID of the channel where the message was sent.
     now = datetime.datetime.utcnow()
 
-    # --- Enhanced summary -------------------------------------------------------------------------------------------------------------------
-    summary_match = re.match(r"summary:\s*last (\d+) (minute|hour|day|week|month|year)s?", user_message.lower())
-    if summary_match:
-        local_memory.add_message(channel_id, user_id, user_message)
+    # # --- Enhanced summary -------------------------------------------------------------------------------------------------------------------
+    # summary_match = re.match(r"summary:\s*last (\d+) (minute|hour|day|week|month|year)s?", user_message.lower())
+    # if summary_match:
+    #     local_memory.add_message(channel_id, user_id, user_message)
         
-        num = int(summary_match.group(1))
-        unit = summary_match.group(2)
-        delta_args = {f"{unit}s": num}
-        since = now - datetime.timedelta(**delta_args)
+    #     num = int(summary_match.group(1))
+    #     unit = summary_match.group(2)
+    #     delta_args = {f"{unit}s": num}
+    #     since = now - datetime.timedelta(**delta_args)
 
-        local_memory.store_all_in_long_term_memory()
+    #     local_memory.store_all_in_long_term_memory()
 
-        summary = summarize_conversation_by_time(
-            channel_id,
-            start_time=since,
-            end_time=now
-        )
-        response = split_response(summary)
-        await message.channel.send(f"📋 Summary (last {num} {unit}{'s' if num > 1 else ''}):\n{response[0]}")
-        if len(response) > 1:
-            for part in response[1:]:
-                await message.channel.send(part)
+    #     summary = summarize_conversation_by_time(
+    #         channel_id,
+    #         start_time=since,
+    #         end_time=now
+    #     )
+    #     response = split_response(summary)
+    #     await message.channel.send(f"📋 Summary (last {num} {unit}{'s' if num > 1 else ''}):\n{response[0]}")
+    #     if len(response) > 1:
+    #         for part in response[1:]:
+    #             await message.channel.send(part)
 
-        local_memory.add_message(channel_id, "Bot", " ".join(response))
-        return
+    #     local_memory.add_message(channel_id, "Bot", " ".join(response))
+    #     return
     
-    # ---- Summary command ------------------------
-    if user_message.lower() == "summary":
-        local_memory.add_message(channel_id, user_id, user_message)
-        history = local_memory.get_chat_history(channel_id)
-        summary = summarize_conversation(history)
-        response = split_response(summary)
-        await message.channel.send(f"📋 Summary:\n{response[0]}")
-        if len(response) > 1:
-            for part in response[1:]:
-                await message.channel.send(part)
-        local_memory.add_message(channel_id, "Bot", summary)
-        return
+    # # ---- Summary command ------------------------
+    # if user_message.lower() == "summary":
+    #     local_memory.add_message(channel_id, user_id, user_message)
+    #     history = local_memory.get_chat_history(channel_id)
+    #     summary = summarize_conversation(history)
+    #     response = split_response(summary)
+    #     await message.channel.send(f"📋 Summary:\n{response[0]}")
+    #     if len(response) > 1:
+    #         for part in response[1:]:
+    #             await message.channel.send(part)
+    #     local_memory.add_message(channel_id, "Bot", summary)
+    #     return
 
-    # ---- Query handler ---------------------
-    if user_message.lower().startswith("query: "):
+    # # ---- Query handler ---------------------
+    # if user_message.lower().startswith("query: "):
 
-        user_query = user_message[7:].strip()
+    #     user_query = user_message[7:].strip()
 
-        if not user_query:
-            await message.channel.send("❌ Please provide a query after `query:`")
-            return
+    #     if not user_query:
+    #         await message.channel.send("❌ Please provide a query after `query:`")
+    #         return
         
-        local_memory.add_message(channel_id, user_id, user_message)
+    #     local_memory.add_message(channel_id, user_id, user_message)
 
-        # Pass session history (list of past queries) to query_data
-        texts = query_data(user_id, user_query, session_history=local_memory.get_user_query_session_history(user_id))
+    #     # Pass session history (list of past queries) to query_data
+    #     texts = query_data(user_id, user_query, session_history=local_memory.get_user_query_session_history(user_id))
 
-        for item in texts:
-            if isinstance(item, str):   #If the content is a text string, send it as a normal message.
-                if not item.strip():
-                    continue
-                await message.channel.send(item)
-            elif isinstance(item, dict) and item.get("type") == "image":    #If it's a chart image, send it as an image file
-                file = discord.File(item["file"], filename=item.get("filename", "chart.png"))   #sends that image as a file to the Discord channel.
-                await message.channel.send(file=file)
-        # Save current message to history as usual
-        local_memory.add_message(channel_id, user_name, user_message)
-        local_memory.add_message(channel_id, "Bot", str(texts))
+    #     for item in texts:
+    #         if isinstance(item, str):   #If the content is a text string, send it as a normal message.
+    #             if not item.strip():
+    #                 continue
+    #             await message.channel.send(item)
+    #         elif isinstance(item, dict) and item.get("type") == "image":    #If it's a chart image, send it as an image file
+    #             file = discord.File(item["file"], filename=item.get("filename", "chart.png"))   #sends that image as a file to the Discord channel.
+    #             await message.channel.send(file=file)
+    #     # Save current message to history as usual
+    #     local_memory.add_message(channel_id, user_name, user_message)
+    #     local_memory.add_message(channel_id, "Bot", str(texts))
 
-        return
+    #     return
 
-    # ---- Follow-up Query Handler (no "query:" prefix) ---------------------
-    if local_memory.get_last_command_type(user_id) == "query" and not user_message.lower().startswith(("ask:", "summary", "search:", "help", "exit", "clear", "show_history", "test", "show_embeds", "gen_chat", "where_am_i")):
-        user_query = user_message.strip()
-        local_memory.add_message(channel_id, user_id, user_message)
-        texts = query_data(user_id, user_query, session_history=local_memory.get_user_query_session_history(user_id))
+    # # ---- Follow-up Query Handler (no "query:" prefix) ---------------------
+    # if local_memory.get_last_command_type(user_id) == "query" and not user_message.lower().startswith(("ask:", "summary", "search:", "help", "exit", "clear", "show_history", "test", "show_embeds", "gen_chat", "where_am_i")):
+    #     user_query = user_message.strip()
+    #     local_memory.add_message(channel_id, user_id, user_message)
+    #     texts = query_data(user_id, user_query, session_history=local_memory.get_user_query_session_history(user_id))
 
-        for item in texts:
-            if isinstance(item, str):
-                if not item.strip():
-                    continue
-                await message.channel.send(item)
-            elif isinstance(item, dict) and item.get("type") == "image":
-                file = discord.File(item["file"], filename=item.get("filename", "chart.png"))
-                await message.channel.send(file=file)
+    #     for item in texts:
+    #         if isinstance(item, str):
+    #             if not item.strip():
+    #                 continue
+    #             await message.channel.send(item)
+    #         elif isinstance(item, dict) and item.get("type") == "image":
+    #             file = discord.File(item["file"], filename=item.get("filename", "chart.png"))
+    #             await message.channel.send(file=file)
 
-        # Save current message to history as usual
-        local_memory.add_message(channel_id, user_name, user_message)
-        local_memory.add_message(channel_id, "Bot", str(texts))
+    #     # Save current message to history as usual
+    #     local_memory.add_message(channel_id, user_name, user_message)
+    #     local_memory.add_message(channel_id, "Bot", str(texts))
 
-        return
+    #     return
 
-    # ---- Existing /search handler ---------------------------------------------------------------------------------------------------------
-    if user_message.lower().startswith("search: "):
-        terms = user_message[len("search: "):].strip()
+    # # ---- Existing /search handler ---------------------------------------------------------------------------------------------------------
+    # if user_message.lower().startswith("search: "):
+    #     terms = user_message[len("search: "):].strip()
 
-        await message.channel.send(f"🔎 Searching for: `{terms}`")
-        quick_result = search_conversation_quick(local_memory.get_vectorstore(channel_id), terms)
-        await message.channel.send(f"🔎 Search result:\n{quick_result}")
+    #     await message.channel.send(f"🔎 Searching for: `{terms}`")
+    #     quick_result = search_conversation_quick(local_memory.get_vectorstore(channel_id), terms)
+    #     await message.channel.send(f"🔎 Search result:\n{quick_result}")
         
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            future = executor.submit(search_conversation, terms, local_memory.get_cached_history_documents(channel_id), quick_result)
+    #     with concurrent.futures.ThreadPoolExecutor() as executor:
+    #         future = executor.submit(search_conversation, terms, local_memory.get_cached_history_documents(channel_id), quick_result)
 
-            total_result = None
-            try:
-                total_result = future.result(timeout=30)
-                if total_result:
-                    await message.channel.send(total_result)
-            except concurrent.futures.TimeoutError:
-                print("Long search operation timed out, using only quick response instead.")
-            except Exception as e:
-                await message.channel.send(f"❌ Error: {e}")
+    #         total_result = None
+    #         try:
+    #             total_result = future.result(timeout=30)
+    #             if total_result:
+    #                 await message.channel.send(total_result)
+    #         except concurrent.futures.TimeoutError:
+    #             print("Long search operation timed out, using only quick response instead.")
+    #         except Exception as e:
+    #             await message.channel.send(f"❌ Error: {e}")
 
-        local_memory.clear_cached_history(channel_id)
+    #     local_memory.clear_cached_history(channel_id)
 
-        if total_result:
-            local_memory.add_message(channel_id, user_name, user_message)
-            local_memory.add_message(channel_id, "Bot", total_result if total_result else quick_result)
+    #     if total_result:
+    #         local_memory.add_message(channel_id, user_name, user_message)
+    #         local_memory.add_message(channel_id, "Bot", total_result if total_result else quick_result)
 
-        return
+    #     return
 
     # ---- Testing utilities ----------------------------------------------------------------------------------------------------------------
     if user_message.lower() == "test":
@@ -264,17 +264,7 @@ async def on_message(message):
             "Use `summary: last X [minute|hour|day|week|month|year]` for a time-limited summary.\n"
             "Use `search: <terms>` to search for terms in the conversation.\n"
             "Use `query: <your query>` to run a SQL-like query on the conversation.\n"
-            "- After typing `query:`, you can ask follow-up questions directly without typing `query:` again.\n"
-            "- You can also ask the bot to **visualize SQL query results** using bar, line, or pie charts. In other "
-            " words, you can request the bot to generate charts by including keywords like `bar chart`, "
-            "`line chart`, `pie chart`, `visualize`, `plot`, `trend`, or `chart` in your query.\n"
-            "- Example queries:\n"
-            "  • `query: Show the number of employees by role as a bar chart`\n"
-            "  • `query: Visualize the distribution of employee roles in a pie chart`\n"
-            "  • `query: Show trend of hires by month as a line chart`\n"
-            "- The bot will automatically detect the requested chart type and generate it using Matplotlib.\n"
-            "- Chart titles are dynamically generated based on your request to ensure clarity and relevance.\n"
-            "- It’s recommended that you specify the chart type (e.g., bar, pie, line) to help the bot best fulfill you.\n"
+            "After typing `query:`, you can ask follow-up questions directly without typing `query:` again.\n"
             "Use `clear` to clear your memory.\n"
             "Use `exit` to stop the bot.\n"
             "# Testing Help:\n"
@@ -287,37 +277,56 @@ async def on_message(message):
         return
 
     # Only allow default chat if message starts with 'ask: '
-    if user_message.lower().startswith("ask: "):
-        local_memory.add_message(channel_id, user_id, user_message)
+    # if user_message.lower().startswith("ask: "):
+    #     local_memory.add_message(channel_id, user_id, user_message)
 
-        # Build prompt
+    #     # Build prompt
         
-        full_prompt = f"""
-        Be Formal with your replies. This is a work environment.
-        I do NOT want any bullet points when you respond to me unless I ask you for them.
-        These replies MUST be short as to not clutter the text chat.
-        All replies must be readable. Now respond to this given the previous instructions:\n
-        """
+    #     full_prompt = f"""
+    #     Be Formal with your replies. This is a work environment.
+    #     I do NOT want any bullet points when you respond to me unless I ask you for them.
+    #     These replies MUST be short as to not clutter the text chat.
+    #     All replies must be readable. Now respond to this given the previous instructions:\n
+    #     """
 
-        # Test Data Creation Prompt:
-        # full_prompt = "You are my coworker and we are having a conversation about one of our projects. make up details about it when i ask you something. never say you dont know something, always answer. also come up with fake follow up questions for me if possible. This conversation will be used as training data, so do not worry about accuracy. Make sure to keep your responses limited in length as to not clutter the text chat. Now using these instructions reply to me:\n"
+    #     # Test Data Creation Prompt:
+    #     # full_prompt = "You are my coworker and we are having a conversation about one of our projects. make up details about it when i ask you something. never say you dont know something, always answer. also come up with fake follow up questions for me if possible. This conversation will be used as training data, so do not worry about accuracy. Make sure to keep your responses limited in length as to not clutter the text chat. Now using these instructions reply to me:\n"
 
-        for role, msg, _ in local_memory.get_chat_history(channel_id):
-            full_prompt += f"{role}: {msg}\n"
+    #     for role, msg, _ in local_memory.get_chat_history(channel_id):
+    #         full_prompt += f"{role}: {msg}\n"
 
+    #     try:
+    #         response = model.invoke(full_prompt)
+    #         bot_reply = response.content.strip()
+    #         replies = split_response(bot_reply)
+    #     except Exception as e:
+    #         await message.channel.send(f"❌ Error: {e}")
+    #         return
+
+    #     for reply in replies:
+    #         await message.channel.send(reply)
+            
+    #     local_memory.add_message(channel_id, "Bot", bot_reply)
+    #     return
+    # else:
+    #     local_memory.add_message(channel_id, user_name, user_message)
+
+    if user_message.lower().startswith("ask: "):
+        messages = HumanMessage(content=user_message)
+        response = agent_graph.invoke({
+                "current_channel": channel_id,
+                "current_user": user_id,
+                "messages": [messages]
+        })
+        
         try:
-            response = model.invoke(full_prompt)
-            bot_reply = response.content.strip()
+            bot_reply = response["messages"][-1].content.strip()
             replies = split_response(bot_reply)
+            for reply in replies:
+                await message.channel.send(reply)
         except Exception as e:
             await message.channel.send(f"❌ Error: {e}")
             return
-
-        for reply in replies:
-            await message.channel.send(reply)
-            
-        local_memory.add_message(channel_id, "Bot", bot_reply)
-        return
     else:
         local_memory.add_message(channel_id, user_name, user_message)
 
