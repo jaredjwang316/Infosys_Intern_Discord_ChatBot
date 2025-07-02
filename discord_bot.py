@@ -314,7 +314,6 @@ async def on_message(message):
     if user_message.lower().startswith("ask: "):
         messages = HumanMessage(content=user_message)
 
-        print(f"Channel ID Type: {type(channel_id)}")
         chat_memory, config = local_memory.get_chat_memory()
         response = agent_graph.invoke({
                 "current_channel": channel_id,
