@@ -289,8 +289,8 @@ builder.add_conditional_edges(
         "generate_response": "generate_response",
     }
 )
-builder.add_conditional_edges("conductor", tools_condition)
-builder.add_edge("tools", "conductor")
+
+builder.add_edge("tools", "generate_response")
 builder.add_edge("generate_response", END)
 
 chat_memory, thread_id = local_memory.get_chat_memory()
