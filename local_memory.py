@@ -1,5 +1,6 @@
 from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
 from langchain_core.vectorstores import InMemoryVectorStore
+from langgraph.checkpoint.memory import MemorySaver
 from langchain.schema import Document
 import datetime
 from langchain_community.vectorstores import PGVector
@@ -40,8 +41,12 @@ class LocalMemory:
 
         self.total_chat_history = {}
         self.cached_chat_history = {}
+        self.chat_memory_configs = {}
+        self.chat_memories = MemorySaver()
         self.user_query_session_history = {}
         self.last_command_type = {}
+
+        self.last_thread_id = 0
 
         self.model = ChatGoogleGenerativeAI(
             model="gemini",
@@ -171,6 +176,16 @@ class LocalMemory:
 
         return formatted_history
     
+    def get_chat_memory(self):
+        """
+        Retrieves the chat memory.
+        This is used for managing conversation context and state.
+        Returns an MemorySaver object.
+        """
+
+        self.last_thread_id += 1
+        return self.chat_memories, {"configurable": {"thread_id": str(self.last_thread_id)}}
+
     def get_vectorstore(self, channel_id):
         """
         Retrieves the vector store for a given channel ID.

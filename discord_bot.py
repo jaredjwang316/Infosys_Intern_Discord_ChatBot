@@ -313,14 +313,18 @@ async def on_message(message):
 
     if user_message.lower().startswith("ask: "):
         messages = HumanMessage(content=user_message)
+
+        print(f"Channel ID Type: {type(channel_id)}")
+        chat_memory, config = local_memory.get_chat_memory()
         response = agent_graph.invoke({
                 "current_channel": channel_id,
                 "current_user": user_id,
                 "messages": [messages]
-        })
+        }, config)
         
         try:
             bot_reply = response["messages"][-1].content.strip()
+            local_memory.add_message(channel_id, "Bot", bot_reply)
             replies = split_response(bot_reply)
             for reply in replies:
                 await message.channel.send(reply)

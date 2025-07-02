@@ -41,6 +41,7 @@ def query(user_id: str, user_query: str) -> list[str]:
         list[str]: A list of messages containing the query result.
     """
     
+    user_id = int(user_id)
     return query_data(user_id, user_query, local_memory.get_user_query_session_history(user_id))
 
 @tool
@@ -53,11 +54,14 @@ def summarize(channel_id: str) -> str:
     Returns:
         str: A list of messages containing the summary.
     """
-    
-    return summarize_conversation(local_memory.get_chat_history(channel_id))
+
+    channel_id = int(channel_id)
+    result = summarize_conversation(local_memory.get_chat_history(channel_id))
+
+    return result
 
 @tool
-def summarize_by_time(channel_id: str, rollback_time: int, time_unit: str) -> str:
+def summarize_by_time(channel_id: str, rollback_time: str, time_unit: str) -> str:
     """
     Summarize the conversation history for a given channel within a time range.
 
@@ -68,6 +72,9 @@ def summarize_by_time(channel_id: str, rollback_time: int, time_unit: str) -> st
     Returns:
         str: A list of messages containing the summary.
     """
+
+    channel_id = int(channel_id)
+    rollback_time = int(rollback_time)
 
     now = datetime.datetime.now()
     delta_args = {f"{time_unit}": rollback_time}
@@ -86,6 +93,8 @@ def search(channel_id: str, query: str) -> str:
         str: A list of messages containing the search results.
     """
     
+    channel_id = int(channel_id)
+
     quick_result = search_conversation_quick(local_memory.get_vectorstore(channel_id), query)
     
     with concurrent.futures.ThreadPoolExecutor() as executor:
@@ -138,10 +147,9 @@ def conductor(state: State) -> dict:
     else:
         last_message_content = str(last_message)
     local_memory.add_message(state["current_channel"], state["current_user"], last_message_content)
-    print(f"🔍 Conductor invoked with last message: {last_message_content}")
 
     system_prompt = f"""
-    You are an intelligent assistant conductor with access to tools. 
+    You are an intelligent assistant with access to tools and never hallucinates. 
     
     IMPORTANT: Only use tools when the user explicitly requests information that requires them.
     
@@ -160,16 +168,21 @@ def conductor(state: State) -> dict:
     - Simple responses that don't require data lookup
     
     For simple greetings and conversation, respond directly without using tools.
-    
+    Keep in mind, tool outputs will not be shown to the user directly. You must interpret the results and provide a clear, helpful response.
+    When asked for summaries, only use information given by the tools.
+
     User's message: "{last_message_content}"
     
     If this is a simple greeting or conversation, respond directly. 
     If this requires database/search/summary operations, use the appropriate tool.
 
+    Feel free to ask for clarification if the user's request is ambiguous.
+    DO NOT HALLUCINATE OR MAKE UP INFORMATION. If you don't know the answer, say so.
+
     Recent Conversation History:
     """
 
-    for role, msg, _ in local_memory.get_chat_history(state["current_channel"])[-20:-1] if len(local_memory.get_chat_history(state["current_channel"])) > 20 else local_memory.get_chat_history(state["current_channel"]):
+    for role, msg, _ in local_memory.get_chat_history(state["current_channel"])[-20:] if len(local_memory.get_chat_history(state["current_channel"])) > 20 else local_memory.get_chat_history(state["current_channel"]):
         system_prompt += f"{role}: {msg}\n"
 
     system_prompt = SystemMessage(
@@ -185,6 +198,8 @@ def conductor(state: State) -> dict:
     response = llm_with_tools.invoke(messages)
 
     print(f"🔍 Conductor response: {response.content.strip()}")
+
+    # local_memory.add_message(state["current_channel"], "Bot", response.content.strip())
 
     return {
         "messages": [response]
@@ -207,47 +222,47 @@ def router(state: State) -> str:
     else:
         return "generate_response"
 
-def generate_response(state: State) -> dict:
-    """
-    Generate a response based on the current state of the conversation.
-    """
-    user_query = ""
-    tool_results = ""
-    conversation_history = ""
+# def generate_response(state: State) -> dict:
+#     """
+#     Generate a response based on the current state of the conversation.
+#     """
+#     user_query = ""
+#     tool_results = ""
+#     conversation_history = ""
     
-    for msg in state["messages"]:
-        if hasattr(msg, '__class__'):
-            if msg.__class__.__name__ == 'HumanMessage' and hasattr(msg, 'content'):
-                user_query = msg.content
-                conversation_history += f"User: {msg.content}\n"
-            elif msg.__class__.__name__ == 'AIMessage' and hasattr(msg, 'content'):
-                if msg.content and "Tool Calls:" not in msg.content:
-                    conversation_history += f"Assistant: {msg.content}\n"
-            elif msg.__class__.__name__ == 'ToolMessage' and hasattr(msg, 'content'):
-                tool_results += f"{msg.content}\n"
+#     for msg in state["messages"]:
+#         if hasattr(msg, '__class__'):
+#             if msg.__class__.__name__ == 'HumanMessage' and hasattr(msg, 'content'):
+#                 user_query = msg.content
+#                 conversation_history += f"User: {msg.content}\n"
+#             elif msg.__class__.__name__ == 'AIMessage' and hasattr(msg, 'content'):
+#                 if msg.content and "Tool Calls:" not in msg.content:
+#                     conversation_history += f"Assistant: {msg.content}\n"
+#             elif msg.__class__.__name__ == 'ToolMessage' and hasattr(msg, 'content'):
+#                 tool_results += f"{msg.content}\n"
 
-    # Create a clean, simple prompt
-    final_prompt = f"""
-    User's original question: {user_query}
+#     # Create a clean, simple prompt
+#     final_prompt = f"""
+#     User's original question: {user_query}
     
-    Tool results: {tool_results}
+#     Tool results: {tool_results}
     
-    Previous conversation:
-    {conversation_history}
+#     Previous conversation:
+#     {conversation_history}
     
-    Please provide a clear, helpful final response to the user's question using the tool results:
-    """
+#     Please provide a clear, helpful final response to the user's question using the tool results:
+#     """
 
-    try:
-        response = llm.invoke([HumanMessage(content=final_prompt)])
-        local_memory.add_message(state["current_channel"], 'Bot', response.content.strip())
-        return {"messages": [response]}
-    except Exception as e:
-        print(f"❌ ERROR: {e}")
-        fallback_response = AIMessage(
-            content="I apologize, but I'm experiencing technical difficulties. Please try your request again."
-        )
-        return {"messages": [fallback_response]}
+#     try:
+#         response = llm.invoke([HumanMessage(content=final_prompt)])
+#         local_memory.add_message(state["current_channel"], 'Bot', response.content.strip())
+#         return {"messages": [response]}
+#     except Exception as e:
+#         print(f"❌ ERROR: {e}")
+#         fallback_response = AIMessage(
+#             content="I apologize, but I'm experiencing technical difficulties. Please try your request again."
+#         )
+#         return {"messages": [fallback_response]}
 
 tools = ToolNode(
     name="tools",
@@ -263,18 +278,21 @@ builder = StateGraph(State)
 
 builder.add_node("conductor", conductor)
 builder.add_node("tools", tools)
-builder.add_node("generate_response", generate_response)
+# builder.add_node("generate_response", generate_response)
 
 builder.set_entry_point("conductor")
-builder.add_conditional_edges(
-    source="conductor",
-    path=router,
-    path_map={
-        "tools": "tools",
-        "generate_response": "generate_response",
-    }
-)
+# builder.add_conditional_edges(
+#     source="conductor",
+#     path=router,
+#     path_map={
+#         "tools": "tools",
+#         "generate_response": "generate_response",
+#     }
+# )
+builder.add_conditional_edges("conductor", tools_condition)
 builder.add_edge("tools", "conductor")
-builder.add_edge("generate_response", END)
+# builder.add_edge("generate_response", END)
 
-agent_graph = builder.compile()
+chat_memory, thread_id = local_memory.get_chat_memory()
+
+agent_graph = builder.compile(checkpointer=chat_memory)
