@@ -1,10 +1,8 @@
 # Discord ChatBot
-
-A sophisticated Discord bot powered by Google's Gemini AI that provides intelligent conversation, database querying, conversation search, and summarization capabilities.
+A sophisticated Discord bot powered by Google's Gemini AI that provides intelligent conversation, database querying, conversation search, and summarization capabilities.  The bot can dynamically determine user's intent and decide whether to respond directly or invoke specialized tools such as database querying, conversation search, and summarization, instead of relying on hard-coded command keywords.  In the other words, the agent uses contextual reasoning to select the appropriate actions—enabling a more natural, adaptive interaction experience.
 
 ## Project Overview
-
-This Discord chatbot integrates with MySQL databases and uses advanced AI features including:
+This Discord chatbot integrates with postgres databases and uses advanced AI features including:
 - Natural language conversation with context awareness
 - SQL query generation and execution
 - Conversation search using vector embeddings
@@ -18,13 +16,13 @@ This Discord chatbot integrates with MySQL databases and uses advanced AI featur
 ## discord_bot.py
 This is the main Discord bot file that handles all Discord interactions. It contains various tools and commands that can be triggered by specific keywords and provides:
 - Message handling with user and channel-specific memory
-- Command processing for queries, search, and summaries
+- Intelligent decision-making to determine when to use tools such as querying, search, and summarization  
 - Integration with all function modules
 - Test utilities for development
 
 ## setup_database.py
 A comprehensive database setup and seeding script that:
-- Creates the MySQL database if it doesn't exist
+- Connects to a PostgreSQL database using credentials from an .env file
 - Executes the database schema from `Schema_test.sql`
 - Seeds the database with realistic test data including:
   - 20 employees with various roles
@@ -38,7 +36,7 @@ Contains all Python dependencies needed for the project:
 - Discord.py for Discord bot functionality
 - LangChain ecosystem for AI and embedding features
 - Google Generative AI for Gemini integration
-- MySQL connector for database operations
+- Psycopg2 for database connection
 - Vector storage libraries (pgVector)
 - Additional utilities (python-dotenv, faker)
 
@@ -60,7 +58,7 @@ Auto-generated formatted version of the SQL schema used by the query function fo
 
 ## functions/query.py
 Advanced database querying module that:
-- Connects to MySQL database using environment variables
+- Connects to the postgreSQL database using environment variables
 - Uses Google's Gemini AI to convert natural language to SQL
 - Validates SQL queries against allowed tables for security
 - Maintains conversation history for context-aware responses
@@ -93,11 +91,7 @@ The Discord bot responds to several specific commands:
 - `exit` - Stop the bot
 
 ### AI Features
-- `ask: <message>` - Have a natural conversation with the bot
-- `query: <question>` - Ask questions about the database (employees, projects, clients, skills)
-- `summary` - Get a summary of the entire conversation
-- `summary: last X [minute|hour|day|week|month|year]` - Get time-limited summary
-- `search: <terms>` - Search for specific terms in conversation history
+- `ask: <your question> - Have a natural conversation with the bot.  
 
 ### Development/Testing
 - `test` - Display user ID and basic info
