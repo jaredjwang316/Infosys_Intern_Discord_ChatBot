@@ -289,20 +289,12 @@ builder.add_node("tools", tools)
 builder.add_node("generate_response", generate_response)
 
 builder.set_entry_point("conductor")
-# builder.add_conditional_edges(
-#     source="conductor",
-#     path=router,
-#     path_map={
-#         "tools": "tools",
-#         "generate_response": "generate_response",
-#     }
-# )
 builder.add_conditional_edges(
-    "conductor", 
-    tools_condition,
-    {
+    source="conductor",
+    path=router,
+    path_map={
         "tools": "tools",
-        "__end__": END
+        "generate_response": "generate_response",
     }
 )
 builder.add_edge("tools", "conductor")
