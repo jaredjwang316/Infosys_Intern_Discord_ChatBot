@@ -4,7 +4,7 @@ from typing_extensions import TypedDict
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
+from langchain_core.messages import SystemMessage, HumanMessage, AIMessage, ToolMessage
 from langchain_core.tools import tool
 from langchain.schema import Document
 from langgraph.prebuilt import ToolNode, tools_condition
@@ -40,6 +40,7 @@ def query(user_id: str, user_query: str) -> list[str]:
     Returns:
         list[str]: A list of messages containing the query result.
     """
+    print("QUERYING")
     
     user_id = int(user_id)
     return query_data(user_id, user_query, local_memory.get_user_query_session_history(user_id))
@@ -54,6 +55,7 @@ def summarize(channel_id: str) -> str:
     Returns:
         str: A list of messages containing the summary.
     """
+    print("SUMMARIZING")
 
     channel_id = int(channel_id)
     result = summarize_conversation(local_memory.get_chat_history(channel_id))
@@ -72,6 +74,7 @@ def summarize_by_time(channel_id: str, rollback_time: float, time_unit: str) -> 
     Returns:
         str: A list of messages containing the summary.
     """
+    print("SUMMARIZING BY TIME")
 
     channel_id = int(channel_id)
     # rollback_time = int(rollback_time)
@@ -97,7 +100,8 @@ def search(channel_id: str, query: str) -> str:
     Returns:
         str: A list of messages containing the search results.
     """
-    
+    print("SEARCHING")
+
     channel_id = int(channel_id)
 
     quick_result = search_conversation_quick(local_memory.get_vectorstore(channel_id), query)
@@ -134,28 +138,104 @@ class State(TypedDict):
     current_user: str
     current_channel: str
 
+# def conductor(state: State) -> dict:
+#     """
+#     Conductor function to manage the state of the agent graph.
+#     This function is responsible for invoking the LLM with the current state and updating the messages.
+#     Args:
+#         state (State): The current state of the conversation.
+#     Returns:
+#         dict: Updated state with the new messages.
+#     """
+#     if not state["messages"]:
+#         state["messages"] = []
+
+#     # Check if the last message is a tool result
+#     last_message = state["messages"][-1]
+    
+#     # If this is the first user message, add it to memory
+#     if hasattr(last_message, 'content') and not hasattr(last_message, 'tool_call_id'):
+#         last_message_content = last_message.content
+#         local_memory.add_message(state["current_channel"], state["current_user"], last_message_content)
+    
+#     # Build the system prompt
+#     system_prompt = f"""
+#     You are an intelligent assistant with access to tools and never hallucinates.
+#     You must decide when to use tools based on the user's request and the conversation history.
+
+#     You have access to the following tools:
+#     - query: For querying the SQL database with user-specific queries.
+#     - summarize: For summarizing the entire conversation history of a channel.
+#     - summarize_by_time: For summarizing conversation history within a specific time range.
+#     - search: For searching the conversation history for specific information.
+    
+#     IMPORTANT: Only use tools when the user explicitly requests information that requires them.
+    
+#     Current channel ID: {state["current_channel"]}
+#     Current user: {state["current_user"]}
+    
+#     WHEN TO USE TOOLS:
+#     - "summarize conversation history for last X days/hours" → Use summarize_by_time tool
+#     - "search for something" or asking about something from the conversation → Use search tool  
+#     - "query database" or specific data requests → Use query tool
+#     - "general summary" → Use summarize tool
+    
+#     WHEN NOT TO USE TOOLS:
+#     - Greetings like "hello", "good afternoon", "hi"
+#     - General conversation or questions unrelated to the conversation history or database
+#     - Simple responses that don't require data lookup
+    
+#     For simple greetings and conversation, respond directly without using tools.
+#     Keep in mind, tool outputs will not be shown to the user directly. You must interpret the results and provide a clear, helpful response.
+#     When asked for summaries, only use information given by the tools.
+    
+#     If this is a simple greeting or conversation, respond directly. 
+#     If this requires database/search/summary operations, use the appropriate tool.
+
+#     Feel free to ask for clarification if the user's request is ambiguous.
+#     DO NOT HALLUCINATE OR MAKE UP INFORMATION. If you don't know the answer, say so.
+    
+#     IMPORTANT: If you have already called a tool and received results, provide a final answer to the user based on those results. Do NOT call the same tool again.
+#     """
+
+#     # Get the original user message from the conversation
+#     user_message = None
+#     for msg in reversed(state["messages"]):
+#         if hasattr(msg, 'content') and not hasattr(msg, 'tool_call_id') and msg.content.strip():
+#             user_message = msg.content
+#             break
+    
+#     if user_message:
+#         system_prompt += f"\n\nOriginal user request: {user_message}\n"
+
+#     system_prompt = SystemMessage(content=system_prompt)
+
+#     # Pass all messages to maintain context
+#     messages = [system_prompt] + state["messages"]
+
+#     response = llm_with_tools.invoke(messages)
+
+#     print(f"🔍 Conductor response: {response.content}")
+#     print(f"🔍 Tool calls: {response.tool_calls}")
+
+#     return {
+#         "messages": [response]
+#     }
+
 def conductor(state: State) -> dict:
-    """
-    Conductor function to manage the state of the agent graph.
-    This function is responsible for invoking the LLM with the current state and updating the messages.
-    Args:
-        state (State): The current state of the conversation.
-    Returns:
-        dict: Updated state with the new messages.
-    """
+    # 1) bootstrap memory
     if not state["messages"]:
         state["messages"] = []
+    last = state["messages"][-1]
+    if hasattr(last, "content") and not hasattr(last, "tool_call_id"):
+        local_memory.add_message(
+            state["current_channel"],
+            state["current_user"],
+            last.content
+        )
 
-    # Check if the last message is a tool result
-    last_message = state["messages"][-1]
-    
-    # If this is the first user message, add it to memory
-    if hasattr(last_message, 'content') and not hasattr(last_message, 'tool_call_id'):
-        last_message_content = last_message.content
-        local_memory.add_message(state["current_channel"], state["current_user"], last_message_content)
-    
-    # Build the system prompt
-    system_prompt = f"""
+    # 2) build system prompt & history
+    system_prompt = SystemMessage(content=f"""
     You are an intelligent assistant with access to tools and never hallucinates.
     You must decide when to use tools based on the user's request and the conversation history.
 
@@ -164,6 +244,14 @@ def conductor(state: State) -> dict:
     - summarize: For summarizing the entire conversation history of a channel.
     - summarize_by_time: For summarizing conversation history within a specific time range.
     - search: For searching the conversation history for specific information.
+                                  
+    If the user's single request implies more than one tool operation, you should generate ALL of the corresponding tool calls in one go, in the order they should run, without asking the user to choose.
+ 
+    Format your plan as a JSON array under `tool_calls`, e.g.:
+    [
+        {{ "name": "summarize", "args": {{ "channel_id": "{state['current_channel']}" }} }},
+        {{ "name": "search",    "args": {{ "channel_id": "{state['current_channel']}", "query": "UI" }} }}
+    ]
     
     IMPORTANT: Only use tools when the user explicitly requests information that requires them.
     
@@ -172,13 +260,13 @@ def conductor(state: State) -> dict:
     
     WHEN TO USE TOOLS:
     - "summarize conversation history for last X days/hours" → Use summarize_by_time tool
-    - "search for something" → Use search tool  
+    - "search for something" or asking about something from the conversation → Use search tool  
     - "query database" or specific data requests → Use query tool
     - "general summary" → Use summarize tool
     
     WHEN NOT TO USE TOOLS:
     - Greetings like "hello", "good afternoon", "hi"
-    - General conversation or questions about yourself
+    - General conversation or questions unrelated to the conversation history or database
     - Simple responses that don't require data lookup
     
     For simple greetings and conversation, respond directly without using tools.
@@ -192,31 +280,37 @@ def conductor(state: State) -> dict:
     DO NOT HALLUCINATE OR MAKE UP INFORMATION. If you don't know the answer, say so.
     
     IMPORTANT: If you have already called a tool and received results, provide a final answer to the user based on those results. Do NOT call the same tool again.
-    """
-
-    # Get the original user message from the conversation
-    user_message = None
-    for msg in reversed(state["messages"]):
-        if hasattr(msg, 'content') and not hasattr(msg, 'tool_call_id') and msg.content.strip():
-            user_message = msg.content
-            break
-    
-    if user_message:
-        system_prompt += f"\n\nOriginal user request: {user_message}\n"
-
-    system_prompt = SystemMessage(content=system_prompt)
-
-    # Pass all messages to maintain context
+    """)
     messages = [system_prompt] + state["messages"]
 
-    response = llm_with_tools.invoke(messages)
+    plan = llm_with_tools.invoke(messages)
 
-    print(f"🔍 Conductor response: {response.content}")
-    print(f"🔍 Tool calls: {response.tool_calls}")
+    # 2) If no tools, just return
+    if not plan.tool_calls:
+        return {"messages": [plan]}
 
-    return {
-        "messages": [response]
-    }
+    # 3) Execute each requested tool, but append results as AIMessage
+    tool_map = {t.name: t for t in (query, summarize, summarize_by_time, search)}
+    for idx, call in enumerate(plan.tool_calls):
+        name = call["name"]
+        args = call.get("args", {})
+        if name not in tool_map:
+            raise ValueError(f"Unknown tool: {name}")
+
+        result = tool_map[name](args)
+
+        # Inject back as a plain AIMessage so Google’s API can handle it
+        messages.append(AIMessage(content=f"[{name} output]:\n{result}"))
+
+    # 4) Final synthesis—only System/Human/AI messages here
+    final = llm.invoke(
+        messages + [
+            HumanMessage(
+                content="Please combine the above results into one final clear answer for the user."
+            )
+        ]
+    )
+    return {"messages": [final]}
 
 def router(state: State) -> str:
     """
