@@ -85,6 +85,7 @@ def summarize_conversation(history):
     response =  model.invoke(message)
     return response.content.strip()
 
+
 def summarize_conversation_by_time(channel_id, start_time, end_time=datetime.datetime.now()):
     """
     Summarize conversation history for a specific channel within a time range.
@@ -95,7 +96,7 @@ def summarize_conversation_by_time(channel_id, start_time, end_time=datetime.dat
         SELECT document, cmetadata, 
                (cmetadata->>'timestamp')::timestamp as parsed_timestamp
         FROM langchain_pg_embedding 
-        WHERE cmetadata->>'channel_id' = %s 
+        WHERE cmetadata->>'channel_id' = %s
         AND cmetadata->>'timestamp' IS NOT NULL
         AND (cmetadata->>'timestamp')::timestamp >= %s 
         AND (cmetadata->>'timestamp')::timestamp <= %s

@@ -61,7 +61,7 @@ def summarize(channel_id: str) -> str:
     return result
 
 @tool
-def summarize_by_time(channel_id: str, rollback_time: str, time_unit: str) -> str:
+def summarize_by_time(channel_id: str, rollback_time: float, time_unit: str) -> str:
     """
     Summarize the conversation history for a given channel within a time range.
 
@@ -74,12 +74,17 @@ def summarize_by_time(channel_id: str, rollback_time: str, time_unit: str) -> st
     """
 
     channel_id = int(channel_id)
-    rollback_time = int(rollback_time)
+    # rollback_time = int(rollback_time)
+
+    local_memory.store_all_in_long_term_memory()
 
     now = datetime.datetime.now()
     delta_args = {f"{time_unit}": rollback_time}
     since = now - datetime.timedelta(**delta_args)
-    return summarize_conversation_by_time(local_memory.get_chat_history(channel_id), since, now)
+    result = summarize_conversation_by_time(channel_id, since, now)
+    print(f"🔍 Summarize by time result: {result}")
+
+    return result
 
 @tool
 def search(channel_id: str, query: str) -> str:
