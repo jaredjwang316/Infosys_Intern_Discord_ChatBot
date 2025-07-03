@@ -286,7 +286,7 @@ builder = StateGraph(State)
 
 builder.add_node("conductor", conductor)
 builder.add_node("tools", tools)
-# builder.add_node("generate_response", generate_response)
+builder.add_node("generate_response", generate_response)
 
 builder.set_entry_point("conductor")
 # builder.add_conditional_edges(
