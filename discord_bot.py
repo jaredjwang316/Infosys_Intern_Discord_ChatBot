@@ -253,7 +253,8 @@ async def on_message(message):
         await message.channel.send("🔒 Saving memory and shutting down...")
         local_memory.store_all_in_long_term_memory()
         await message.channel.send("💀 Goodbye!")
-        exit()
+        await client.close()
+        return
 
     # ---- Help command -----------------------------------------------------------------------------------------------------------------------
     if user_message.lower() == "help":

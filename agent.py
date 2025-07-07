@@ -320,7 +320,7 @@ def conductor(state: State) -> dict:
 
         # Log the tool usage
         logging.info(
-            f"""🛠️ Tool Executed: {name}
+            f"""🛠️ Tool Called: {name}
             ⏰ Time: {datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H-%M-%SZ")}
             👤 User: {state['current_user']}
             💬 Channel: {state['current_channel']}
