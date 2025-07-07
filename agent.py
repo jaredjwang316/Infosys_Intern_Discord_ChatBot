@@ -17,8 +17,22 @@ from functions.summary import summarize_conversation, summarize_conversation_by_
 from functions.search import search_conversation, search_conversation_quick
 from local_memory import LocalMemory
 
-# Set up basic logging to console (or change to a file later)
-logging.basicConfig(level=logging.INFO)
+# Ensure the logs directory exists
+os.makedirs("logs", exist_ok=True)
+
+# Generate a session-specific log filename
+timestamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H-%M-%SZ")
+log_filename = os.path.join("logs", f"agent_session_{timestamp}.log")
+
+# Set up logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    handlers=[
+        logging.FileHandler(log_filename, encoding="utf-8"),  # File
+        logging.StreamHandler()  # Terminal (optional)
+    ]
+)
 
 os.environ["GOOGLE_API_KEY"] = os.getenv("GOOGLE_API_KEY")
 model_name = os.getenv("MODEL_NAME")
@@ -307,7 +321,7 @@ def conductor(state: State) -> dict:
         # Log the tool usage
         logging.info(
             f"""🛠️ Tool Executed: {name}
-            ⏰ Time: {datetime.datetime.now().isoformat()}
+            ⏰ Time: {datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H-%M-%SZ")}
             👤 User: {state['current_user']}
             💬 Channel: {state['current_channel']}
             🧾 Args: {args}
