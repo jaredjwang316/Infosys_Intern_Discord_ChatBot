@@ -8,6 +8,7 @@ from langchain_core.messages import SystemMessage, HumanMessage, AIMessage, Tool
 from langchain_core.tools import tool
 from langchain.schema import Document
 from langgraph.prebuilt import ToolNode, tools_condition
+import logging
 import datetime
 import concurrent.futures
 
@@ -15,6 +16,23 @@ from functions.query import query_data
 from functions.summary import summarize_conversation, summarize_conversation_by_time
 from functions.search import search_conversation, search_conversation_quick
 from local_memory import LocalMemory
+
+# Ensure the logs directory exists
+os.makedirs("logs", exist_ok=True)
+
+# Generate a session-specific log filename
+timestamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H-%M-%SZ")
+log_filename = os.path.join("logs", f"agent_session_{timestamp}.log")
+
+# Set up logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    handlers=[
+        logging.FileHandler(log_filename, encoding="utf-8"),  # File
+        logging.StreamHandler()  # Terminal (optional)
+    ]
+)
 
 os.environ["GOOGLE_API_KEY"] = os.getenv("GOOGLE_API_KEY")
 model_name = os.getenv("MODEL_NAME")
@@ -291,15 +309,26 @@ def conductor(state: State) -> dict:
 
     # 3) Execute each requested tool, but append results as AIMessage
     tool_map = {t.name: t for t in (query, summarize, summarize_by_time, search)}
-    for idx, call in enumerate(plan.tool_calls):
+    for call in plan.tool_calls:
         name = call["name"]
         args = call.get("args", {})
         if name not in tool_map:
             raise ValueError(f"Unknown tool: {name}")
 
+        # Run the tool
         result = tool_map[name](args)
 
-        # Inject back as a plain AIMessage so Google’s API can handle it
+        # Log the tool usage
+        logging.info(
+            f"""🛠️ Tool Executed: {name}
+            ⏰ Time: {datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H-%M-%SZ")}
+            👤 User: {state['current_user']}
+            💬 Channel: {state['current_channel']}
+            🧾 Args: {args}
+            """
+        )
+
+        # Append tool output as AI message
         messages.append(AIMessage(content=f"[{name} output]:\n{result}"))
 
     # 4) Final synthesis—only System/Human/AI messages here
@@ -310,6 +339,7 @@ def conductor(state: State) -> dict:
             )
         ]
     )
+
     return {"messages": [final]}
 
 def router(state: State) -> str:
@@ -329,47 +359,47 @@ def router(state: State) -> str:
     else:
         return "generate_response"
 
-# def generate_response(state: State) -> dict:
-#     """
-#     Generate a response based on the current state of the conversation.
-#     """
-#     user_query = ""
-#     tool_results = ""
-#     conversation_history = ""
+def generate_response(state: State) -> dict:
+    """
+    Generate a response based on the current state of the conversation.
+    """
+    user_query = ""
+    tool_results = ""
+    conversation_history = ""
     
-#     for msg in state["messages"]:
-#         if hasattr(msg, '__class__'):
-#             if msg.__class__.__name__ == 'HumanMessage' and hasattr(msg, 'content'):
-#                 user_query = msg.content
-#                 conversation_history += f"User: {msg.content}\n"
-#             elif msg.__class__.__name__ == 'AIMessage' and hasattr(msg, 'content'):
-#                 if msg.content and "Tool Calls:" not in msg.content:
-#                     conversation_history += f"Assistant: {msg.content}\n"
-#             elif msg.__class__.__name__ == 'ToolMessage' and hasattr(msg, 'content'):
-#                 tool_results += f"{msg.content}\n"
+    for msg in state["messages"]:
+        if hasattr(msg, '__class__'):
+            if msg.__class__.__name__ == 'HumanMessage' and hasattr(msg, 'content'):
+                user_query = msg.content
+                conversation_history += f"User: {msg.content}\n"
+            elif msg.__class__.__name__ == 'AIMessage' and hasattr(msg, 'content'):
+                if msg.content and "Tool Calls:" not in msg.content:
+                    conversation_history += f"Assistant: {msg.content}\n"
+            elif msg.__class__.__name__ == 'ToolMessage' and hasattr(msg, 'content'):
+                tool_results += f"{msg.content}\n"
 
-#     # Create a clean, simple prompt
-#     final_prompt = f"""
-#     User's original question: {user_query}
+    # Create a clean, simple prompt
+    final_prompt = f"""
+    User's original question: {user_query}
     
-#     Tool results: {tool_results}
+    Tool results: {tool_results}
     
-#     Previous conversation:
-#     {conversation_history}
+    Previous conversation:
+    {conversation_history}
     
-#     Please provide a clear, helpful final response to the user's question using the tool results:
-#     """
+    Please provide a clear, helpful final response to the user's question using the tool results:
+    """
 
-#     try:
-#         response = llm.invoke([HumanMessage(content=final_prompt)])
-#         local_memory.add_message(state["current_channel"], 'Bot', response.content.strip())
-#         return {"messages": [response]}
-#     except Exception as e:
-#         print(f"❌ ERROR: {e}")
-#         fallback_response = AIMessage(
-#             content="I apologize, but I'm experiencing technical difficulties. Please try your request again."
-#         )
-#         return {"messages": [fallback_response]}
+    try:
+        response = llm.invoke([HumanMessage(content=final_prompt)])
+        local_memory.add_message(state["current_channel"], 'Bot', response.content.strip())
+        return {"messages": [response]}
+    except Exception as e:
+        print(f"❌ ERROR: {e}")
+        fallback_response = AIMessage(
+            content="I apologize, but I'm experiencing technical difficulties. Please try your request again."
+        )
+        return {"messages": [fallback_response]}
 
 tools = ToolNode(
     name="tools",
@@ -385,7 +415,7 @@ builder = StateGraph(State)
 
 builder.add_node("conductor", conductor)
 builder.add_node("tools", tools)
-# builder.add_node("generate_response", generate_response)
+builder.add_node("generate_response", generate_response)
 
 builder.set_entry_point("conductor")
 # builder.add_conditional_edges(
@@ -405,7 +435,7 @@ builder.add_conditional_edges(
     }
 )
 builder.add_edge("tools", "conductor")
-# builder.add_edge("generate_response", END)
+builder.add_edge("generate_response", END)
 
 chat_memory, thread_id = local_memory.get_chat_memory()
 
