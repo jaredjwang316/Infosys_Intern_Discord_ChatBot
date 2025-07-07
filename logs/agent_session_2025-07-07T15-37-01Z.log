@@ -1,0 +1,136 @@
+2025-07-07 10:37:01,574 [WARNING] PyNaCl is not installed, voice will NOT be supported
+2025-07-07 10:37:01,576 [INFO] logging in using static token
+2025-07-07 10:37:02,331 [INFO] Shard ID None has connected to Gateway (Session ID: 068dbf05d7f951cd8f28c7e4a6b147ba).
+2025-07-07 10:37:07,808 [INFO] 📨 Message received — User: jared_wang_csce121ugta (ID: 667711810140373025)
+2025-07-07 10:37:07,808 [INFO] 📨 Channel: general (ID: 1384276333047320640)
+2025-07-07 10:37:07,808 [INFO] 💬 Content: help
+2025-07-07 10:38:05,426 [INFO] 📨 Message received — User: jared_wang_csce121ugta (ID: 667711810140373025)
+2025-07-07 10:38:05,427 [INFO] 📨 Channel: general (ID: 1384276333047320640)
+2025-07-07 10:38:05,428 [INFO] 💬 Content: ask: can you fetch and list all of the employees
+2025-07-07 10:38:05,434 [INFO] 🧭 Agent started — User: 667711810140373025, Channel: 1384276333047320640
+2025-07-07 10:38:05,435 [INFO] 🧾 Current messages: ['ask: can you fetch and list all of the employees']
+2025-07-07 10:38:05,866 [INFO] 🧠 Invoking LLM to generate plan with tools (if needed)...
+2025-07-07 10:38:07,530 [INFO] 💬 LLM plan generated: 
+2025-07-07 10:38:07,530 [INFO] 📦 Tool calls planned: ['query']
+2025-07-07 10:38:09,149 [INFO] 🛠️ Tool Executed: query
+            ⏰ Time: 2025-07-07T15-38-09Z
+            👤 User: 667711810140373025
+            💬 Channel: 1384276333047320640
+            🧾 Args: {'user_id': '667711810140373025', 'user_query': 'SELECT * FROM employees'}
+            
+2025-07-07 10:38:09,149 [INFO] 📤 Tool output: ['```id | name | email | role | joined_at\n1 | Alice Sharma | alice.sharma@infosys.com | Software Engineer | 2021-03-01\n2 | Bob Mehta | bob.mehta@infosys.com | Tester | 2022-06-15\n3 | Cathy Zhang | cathy.zhang@infosys.com | Project Manager | 2020-11-20\n4 | Kristen Rogers | jonessteven@example.com | DevOps | 2021-10-20\n5 | Brooke Mccall | connerterry@example.com | Manager | 2023-03-25\n6 | Lynn Aguilar | nicholas75@example.com | Manager | 2022-07-21\n7 | Ashley Jackson | srice@example.com | Developer | 2020-06-15\n8 | Eddie Cole | ajordan@example.com | Manager | 2020-02-29\n9 | Karen Reyes | eanderson@example.com | Analyst | 2024-12-16\n10 | Willie Walker | richard99@example.net | Manager | 2023-04-29\n11 | Scott Hopkins | stephensstephanie@example.com | Developer | 2020-10-18\n12 | Jessica Johnson | todd30@example.org | DevOps | 2023-03-12\n13 | Deborah Love | brivera@example.net | Analyst | 2021-05-31\n14 | Ian Schmidt | tony95@example.com | Tester | 2021-12-18\n15 | Christina Lawson | aaron14@example.org | Developer | 2024-11-11\n16 | Jeremy Grimes | stephen84@example.net | Developer | 2022-10-20\n17 | Brett Hill | fwright@example.com | Manager | 2023-03-15\n18 | Jessica Nichols | vmcbride@example.net | Tester | 2021-09-02\n19 | Dawn Perry | melissa10@example.net | Developer | 2023-12-11\n20 | Lucas Walker | lisa78@example.org | Analyst | 2023-05-02\n21 | William Ellis | paul62@example.com | Developer | 2024-08-06\n22 | Donna Joyce | clarkjames@example.com | Analyst | 2021-10-06\n23 | Anthony Patrick | melissa33@example.com | Analyst | 2022-11-11\n```']
+2025-07-07 10:38:09,149 [INFO] 🧠 Invoking LLM to synthesize final response from tool outputs...
+2025-07-07 10:38:12,335 [INFO] ✅ Final response generated: Here is the list of all employees:
+
+*   **1:** Alice Sharma, alice.sharma@infosys.com, Software Engineer, joined 2021-03-01
+*   **2:** Bob Mehta, bob.mehta@infosys.com, Tester, joined 2022-06-15
+*   **3:** Cathy Zhang, cathy.zhang@infosys.com, Project Manager, joined 2020-11-20
+*   **4:** Kristen Rogers, jonessteven@example.com, DevOps, joined 2021-10-20
+*   **5:** Brooke Mccall, connerterry@example.com, Manager, joined 2023-03-25
+*   **6:** Lynn Aguilar, nicholas75@example.com, Manager, joined 2022-07-21
+*   **7:** Ashley Jackson, srice@example.com, Developer, joined 2020-06-15
+*   **8:** Eddie Cole, ajordan@example.com, Manager, joined 2020-02-29
+*   **9:** Karen Reyes, eanderson@example.com, Analyst, joined 2024-12-16
+*   **10:** Willie Walker, richard99@example.net, Manager, joined 2023-04-29
+*   **11:** Scott Hopkins, stephensstephanie@example.com, Developer, joined 2020-10-18
+*   **12:** Jessica Johnson, todd30@example.org, DevOps, joined 2023-03-12
+*   **13:** Deborah Love, brivera@example.net, Analyst, joined 2021-05-31
+*   **14:** Ian Schmidt, tony95@example.com, Tester, joined 2021-12-18
+*   **15:** Christina Lawson, aaron14@example.org, Developer, joined 2024-11-11
+*   **16:** Jeremy Grimes, stephen84@example.net, Developer, joined 2022-10-20
+*   **17:** Brett Hill, fwright@example.com, Manager, joined 2023-03-15
+*   **18:** Jessica Nichols, vmcbride@example.net, Tester, joined 2021-09-02
+*   **19:** Dawn Perry, melissa10@example.net, Developer, joined 2023-12-11
+*   **20:** Lucas Walker, lisa78@example.org, Analyst, joined 2023-05-02
+*   **21:** William Ellis, paul62@example.com, Developer, joined 2024-08-06
+*   **22:** Donna Joyce, clarkjames@example.com, Analyst, joined 2021-10-06
+*   **23:** Anthony Patrick, melissa33@example.com, Analyst, joined 2022-11-11
+2025-07-07 10:39:09,524 [INFO] 📨 Message received — User: jared_wang_csce121ugta (ID: 667711810140373025)
+2025-07-07 10:39:09,525 [INFO] 📨 Channel: general (ID: 1384276333047320640)
+2025-07-07 10:39:09,525 [INFO] 💬 Content: ask: great.  identify those whose role is DevOps
+2025-07-07 10:39:09,527 [INFO] 🧭 Agent started — User: 667711810140373025, Channel: 1384276333047320640
+2025-07-07 10:39:09,527 [INFO] 🧾 Current messages: ['ask: great.  identify those whose role is DevOps']
+2025-07-07 10:39:10,608 [INFO] 🧠 Invoking LLM to generate plan with tools (if needed)...
+2025-07-07 10:39:11,737 [INFO] 💬 LLM plan generated: 
+2025-07-07 10:39:11,737 [INFO] 📦 Tool calls planned: ['query']
+2025-07-07 10:39:12,755 [INFO] 🛠️ Tool Executed: query
+            ⏰ Time: 2025-07-07T15-39-12Z
+            👤 User: 667711810140373025
+            💬 Channel: 1384276333047320640
+            🧾 Args: {'user_id': '667711810140373025', 'user_query': 'identify those whose role is DevOps'}
+            
+2025-07-07 10:39:12,755 [INFO] 📤 Tool output: ['```name | email\nKristen Rogers | jonessteven@example.com\nJessica Johnson | todd30@example.org\n```']
+2025-07-07 10:39:12,755 [INFO] 🧠 Invoking LLM to synthesize final response from tool outputs...
+2025-07-07 10:39:13,619 [INFO] ✅ Final response generated: Here are the individuals identified with the DevOps role:
+
+*   **Kristen Rogers**: jonessteven@example.com
+*   **Jessica Johnson**: todd30@example.org
+2025-07-07 10:39:33,395 [INFO] 📨 Message received — User: jared_wang_csce121ugta (ID: 667711810140373025)
+2025-07-07 10:39:33,397 [INFO] 📨 Channel: general (ID: 1384276333047320640)
+2025-07-07 10:39:33,397 [INFO] 💬 Content: ask: sum up our talk
+2025-07-07 10:39:33,400 [INFO] 🧭 Agent started — User: 667711810140373025, Channel: 1384276333047320640
+2025-07-07 10:39:33,400 [INFO] 🧾 Current messages: ['ask: sum up our talk']
+2025-07-07 10:39:36,054 [INFO] 🧠 Invoking LLM to generate plan with tools (if needed)...
+2025-07-07 10:39:36,873 [INFO] 💬 LLM plan generated: 
+2025-07-07 10:39:36,873 [INFO] 📦 Tool calls planned: ['summarize']
+2025-07-07 10:39:39,083 [INFO] 🛠️ Tool Executed: summarize
+            ⏰ Time: 2025-07-07T15-39-39Z
+            👤 User: 667711810140373025
+            💬 Channel: 1384276333047320640
+            🧾 Args: {'channel_id': '1384276333047320640'}
+            
+2025-07-07 10:39:39,084 [INFO] 📤 Tool output: This conversation log details a user's interaction with an AI to retrieve and filter employee information from a company database. The user initiated the exchange by requesting a complete list of employees and then followed up with a specific query to filter employees by their job role.
+
+### Employee Roster Retrieval
+
+*   The user's initial request was to fetch and list all employees.
+*   The AI successfully provided a comprehensive list of 23 employees.
+*   Each employee entry included their name, email address, job role, and join date.
+
+### Filtering Employees by Role
+
+*   Following the full roster, the user asked to identify employees specifically holding the 'DevOps' role.
+*   The AI accurately filtered the list and presented two individuals:
+    *   Kristen Rogers (jonessteven@example.com)
+    *   Jessica Johnson (todd30@example.org)
+2025-07-07 10:39:39,084 [INFO] 🧠 Invoking LLM to synthesize final response from tool outputs...
+2025-07-07 10:39:40,659 [INFO] ✅ Final response generated: I can do that for you!
+
+Based on our conversation, you first asked for a complete list of all employees, which I provided, showing 23 employees with their names, emails, job roles, and join dates.
+
+Then, you specifically requested to see only the employees with the 'DevOps' role. I filtered the list and found two employees: Kristen Rogers (jonessteven@example.com) and Jessica Johnson (todd30@example.org) who both hold that role.
+2025-07-07 10:40:03,162 [INFO] 📨 Message received — User: jared_wang_csce121ugta (ID: 667711810140373025)
+2025-07-07 10:40:03,162 [INFO] 📨 Channel: general (ID: 1384276333047320640)
+2025-07-07 10:40:03,163 [INFO] 💬 Content: clear
+2025-07-07 10:40:10,049 [INFO] 📨 Message received — User: jared_wang_csce121ugta (ID: 667711810140373025)
+2025-07-07 10:40:10,050 [INFO] 📨 Channel: general (ID: 1384276333047320640)
+2025-07-07 10:40:10,050 [INFO] 💬 Content: exit
+2025-07-07 10:40:10,535 [ERROR] Task exception was never retrieved
+future: <Task finished name='discord.py: on_message' coro=<Client._run_event() done, defined at e:\Data_Jupiter_Jared\Y2025_06_Summer\InfoSys\discord_chatbot\.venv\Lib\site-packages\discord\client.py:473> exception=SystemExit(None)>
+Traceback (most recent call last):
+  File "e:\Data_Jupiter_Jared\Y2025_06_Summer\InfoSys\discord_chatbot\discord_bot.py", line 341, in <module>
+    client.run(discord_token)
+  File "e:\Data_Jupiter_Jared\Y2025_06_Summer\InfoSys\discord_chatbot\.venv\Lib\site-packages\discord\client.py", line 906, in run
+    asyncio.run(runner())
+  File "C:\Python312\Lib\asyncio\runners.py", line 194, in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "C:\Python312\Lib\asyncio\runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Python312\Lib\asyncio\base_events.py", line 674, in run_until_complete
+    self.run_forever()
+  File "C:\Python312\Lib\asyncio\windows_events.py", line 322, in run_forever
+    super().run_forever()
+  File "C:\Python312\Lib\asyncio\base_events.py", line 641, in run_forever
+    self._run_once()
+  File "C:\Python312\Lib\asyncio\base_events.py", line 1986, in _run_once
+    handle._run()
+  File "C:\Python312\Lib\asyncio\events.py", line 88, in _run
+    self._context.run(self._callback, *self._args)
+  File "e:\Data_Jupiter_Jared\Y2025_06_Summer\InfoSys\discord_chatbot\.venv\Lib\site-packages\discord\client.py", line 481, in _run_event
+    await coro(*args, **kwargs)
+  File "e:\Data_Jupiter_Jared\Y2025_06_Summer\InfoSys\discord_chatbot\discord_bot.py", line 261, in on_message
+    exit()
+  File "<frozen _sitebuiltins>", line 26, in __call__
+SystemExit: None

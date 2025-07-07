@@ -1,5 +1,6 @@
 import os
 import discord
+import logging
 
 from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -82,6 +83,10 @@ async def on_message(message):
     if message.author == client.user:
         return
 
+    logging.info(f"📨 Message received — User: {message.author} (ID: {message.author.id})")
+    logging.info(f"📨 Channel: {message.channel} (ID: {message.channel.id})")
+    logging.info(f"💬 Content: {message.content}")
+    
     user_id      = message.author.id    #unique Discord user ID of the message sender.
     user_name    = message.author.mention   #string to mention/tag the user in a message.
     user_message = message.content.strip()  #actual text content of the message the user sent.

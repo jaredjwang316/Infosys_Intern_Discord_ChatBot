@@ -241,6 +241,10 @@ class State(TypedDict):
 #     }
 
 def conductor(state: State) -> dict:
+
+    logging.info(f"🧭 Agent started — User: {state['current_user']}, Channel: {state['current_channel']}")
+    logging.info(f"🧾 Current messages: {[m.content for m in state['messages'] if hasattr(m, 'content')]}")
+
     # 1) bootstrap memory
     if not state["messages"]:
         state["messages"] = []
@@ -301,10 +305,14 @@ def conductor(state: State) -> dict:
     """)
     messages = [system_prompt] + state["messages"]
 
+    logging.info("🧠 Invoking LLM to generate plan with tools (if needed)...")
     plan = llm_with_tools.invoke(messages)
 
-    # 2) If no tools, just return
-    if not plan.tool_calls:
+    logging.info(f"💬 LLM plan generated: {plan.content}")
+    if plan.tool_calls:
+        logging.info(f"📦 Tool calls planned: {[call['name'] for call in plan.tool_calls]}")
+    else:
+        logging.info("📦 No tool calls planned. Final response will be generated directly.")
         return {"messages": [plan]}
 
     # 3) Execute each requested tool, but append results as AIMessage
@@ -327,10 +335,12 @@ def conductor(state: State) -> dict:
             🧾 Args: {args}
             """
         )
+        logging.info(f"📤 Tool output: {result}")
 
         # Append tool output as AI message
         messages.append(AIMessage(content=f"[{name} output]:\n{result}"))
 
+    logging.info("🧠 Invoking LLM to synthesize final response from tool outputs...")
     # 4) Final synthesis—only System/Human/AI messages here
     final = llm.invoke(
         messages + [
@@ -339,6 +349,7 @@ def conductor(state: State) -> dict:
             )
         ]
     )
+    logging.info(f"✅ Final response generated: {final.content}")
 
     return {"messages": [final]}
 

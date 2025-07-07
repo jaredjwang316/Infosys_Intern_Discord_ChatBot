@@ -1,0 +1,47 @@
+2025-07-07 10:40:25,199 [WARNING] PyNaCl is not installed, voice will NOT be supported
+2025-07-07 10:40:25,201 [INFO] logging in using static token
+2025-07-07 10:40:25,886 [INFO] Shard ID None has connected to Gateway (Session ID: 9ed41a920feee84553c0776dbb9a4a9e).
+2025-07-07 10:40:29,797 [INFO] 📨 Message received — User: jared_wang_csce121ugta (ID: 667711810140373025)
+2025-07-07 10:40:29,797 [INFO] 📨 Channel: general (ID: 1384276333047320640)
+2025-07-07 10:40:29,797 [INFO] 💬 Content: help
+2025-07-07 10:40:34,024 [INFO] 📨 Message received — User: jared_wang_csce121ugta (ID: 667711810140373025)
+2025-07-07 10:40:34,025 [INFO] 📨 Channel: general (ID: 1384276333047320640)
+2025-07-07 10:40:34,025 [INFO] 💬 Content: show_history
+2025-07-07 10:40:38,675 [INFO] 📨 Message received — User: jared_wang_csce121ugta (ID: 667711810140373025)
+2025-07-07 10:40:38,675 [INFO] 📨 Channel: general (ID: 1384276333047320640)
+2025-07-07 10:40:38,675 [INFO] 💬 Content: where_am_i
+2025-07-07 10:40:42,105 [INFO] 📨 Message received — User: jared_wang_csce121ugta (ID: 667711810140373025)
+2025-07-07 10:40:42,105 [INFO] 📨 Channel: general (ID: 1384276333047320640)
+2025-07-07 10:40:42,105 [INFO] 💬 Content: clear
+2025-07-07 10:40:43,449 [INFO] 📨 Message received — User: jared_wang_csce121ugta (ID: 667711810140373025)
+2025-07-07 10:40:43,450 [INFO] 📨 Channel: general (ID: 1384276333047320640)
+2025-07-07 10:40:43,450 [INFO] 💬 Content: exit
+2025-07-07 10:40:43,918 [ERROR] Task exception was never retrieved
+future: <Task finished name='discord.py: on_message' coro=<Client._run_event() done, defined at e:\Data_Jupiter_Jared\Y2025_06_Summer\InfoSys\discord_chatbot\.venv\Lib\site-packages\discord\client.py:473> exception=SystemExit(None)>
+Traceback (most recent call last):
+  File "e:\Data_Jupiter_Jared\Y2025_06_Summer\InfoSys\discord_chatbot\discord_bot.py", line 341, in <module>
+    client.run(discord_token)
+  File "e:\Data_Jupiter_Jared\Y2025_06_Summer\InfoSys\discord_chatbot\.venv\Lib\site-packages\discord\client.py", line 906, in run
+    asyncio.run(runner())
+  File "C:\Python312\Lib\asyncio\runners.py", line 194, in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "C:\Python312\Lib\asyncio\runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Python312\Lib\asyncio\base_events.py", line 674, in run_until_complete
+    self.run_forever()
+  File "C:\Python312\Lib\asyncio\windows_events.py", line 322, in run_forever
+    super().run_forever()
+  File "C:\Python312\Lib\asyncio\base_events.py", line 641, in run_forever
+    self._run_once()
+  File "C:\Python312\Lib\asyncio\base_events.py", line 1986, in _run_once
+    handle._run()
+  File "C:\Python312\Lib\asyncio\events.py", line 88, in _run
+    self._context.run(self._callback, *self._args)
+  File "e:\Data_Jupiter_Jared\Y2025_06_Summer\InfoSys\discord_chatbot\.venv\Lib\site-packages\discord\client.py", line 481, in _run_event
+    await coro(*args, **kwargs)
+  File "e:\Data_Jupiter_Jared\Y2025_06_Summer\InfoSys\discord_chatbot\discord_bot.py", line 261, in on_message
+    exit()
+  File "<frozen _sitebuiltins>", line 26, in __call__
+SystemExit: None
