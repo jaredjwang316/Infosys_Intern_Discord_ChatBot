@@ -1,0 +1,60 @@
+2025-07-07 16:24:10,022 [WARNING] PyNaCl is not installed, voice will NOT be supported
+2025-07-07 16:24:10,022 [INFO] logging in using static token
+2025-07-07 16:24:10,672 [INFO] Shard ID None has connected to Gateway (Session ID: 8bc68582988305010d0ce7196abd0421).
+2025-07-07 16:24:14,417 [INFO] 📨 Message received — User: jared_wang_csce121ugta (ID: 667711810140373025)
+2025-07-07 16:24:14,419 [INFO] 📨 Channel: general (ID: 1384276333047320640)
+2025-07-07 16:24:14,419 [INFO] 💬 Content: help
+2025-07-07 16:24:31,273 [INFO] 📨 Message received — User: jared_wang_csce121ugta (ID: 667711810140373025)
+2025-07-07 16:24:31,274 [INFO] 📨 Channel: general (ID: 1384276333047320640)
+2025-07-07 16:24:31,276 [INFO] 💬 Content: ask: fetch and list all projects
+2025-07-07 16:24:31,284 [INFO] 🧭 Agent started — User: 667711810140373025, Channel: 1384276333047320640
+2025-07-07 16:24:31,284 [INFO] 🧾 Current messages: ['ask: fetch and list all projects']
+2025-07-07 16:24:31,707 [INFO] 🧠 Invoking LLM to generate plan with tools (if needed)...
+2025-07-07 16:24:33,182 [INFO] 💬 LLM plan generated: 
+2025-07-07 16:24:33,183 [INFO] 📦 Tool calls planned: ['query']
+2025-07-07 16:24:33,962 [INFO] 🛠️ Tool Executed: query
+            ⏰ Time: 2025-07-07T21-24-33Z
+            👤 User: 667711810140373025
+            💬 Channel: 1384276333047320640
+            🧾 Args: {'user_id': '667711810140373025', 'user_query': 'fetch and list all projects'}
+            
+2025-07-07 16:24:33,964 [INFO] 🧠 Invoking LLM to synthesize final response from tool outputs...
+2025-07-07 16:24:38,548 [INFO] ✅ Final response generated successfully.
+2025-07-07 16:25:12,476 [INFO] 📨 Message received — User: jared_wang_csce121ugta (ID: 667711810140373025)
+2025-07-07 16:25:12,476 [INFO] 📨 Channel: general (ID: 1384276333047320640)
+2025-07-07 16:25:12,477 [INFO] 💬 Content: ask: great.  identify those whose status is active
+2025-07-07 16:25:12,477 [INFO] 🧭 Agent started — User: 667711810140373025, Channel: 1384276333047320640
+2025-07-07 16:25:12,477 [INFO] 🧾 Current messages: ['ask: great.  identify those whose status is active']
+2025-07-07 16:25:12,840 [INFO] 🧠 Invoking LLM to generate plan with tools (if needed)...
+2025-07-07 16:25:13,748 [INFO] 💬 LLM plan generated: 
+2025-07-07 16:25:13,748 [INFO] 📦 Tool calls planned: ['query']
+2025-07-07 16:25:14,668 [INFO] 🛠️ Tool Executed: query
+            ⏰ Time: 2025-07-07T21-25-14Z
+            👤 User: 667711810140373025
+            💬 Channel: 1384276333047320640
+            🧾 Args: {'user_id': '667711810140373025', 'user_query': 'identify those whose status is active'}
+            
+2025-07-07 16:25:14,668 [INFO] 🧠 Invoking LLM to synthesize final response from tool outputs...
+2025-07-07 16:25:16,600 [INFO] ✅ Final response generated successfully.
+2025-07-07 16:25:40,690 [INFO] 📨 Message received — User: jared_wang_csce121ugta (ID: 667711810140373025)
+2025-07-07 16:25:40,690 [INFO] 📨 Channel: general (ID: 1384276333047320640)
+2025-07-07 16:25:40,691 [INFO] 💬 Content: ask: summarize our conversation please
+2025-07-07 16:25:40,694 [INFO] 🧭 Agent started — User: 667711810140373025, Channel: 1384276333047320640
+2025-07-07 16:25:40,694 [INFO] 🧾 Current messages: ['ask: summarize our conversation please']
+2025-07-07 16:25:41,113 [INFO] 🧠 Invoking LLM to generate plan with tools (if needed)...
+2025-07-07 16:25:42,011 [INFO] 💬 LLM plan generated: 
+2025-07-07 16:25:42,011 [INFO] 📦 Tool calls planned: ['summarize']
+2025-07-07 16:25:44,898 [INFO] 🛠️ Tool Executed: summarize
+            ⏰ Time: 2025-07-07T21-25-44Z
+            👤 User: 667711810140373025
+            💬 Channel: 1384276333047320640
+            🧾 Args: {'channel_id': '1384276333047320640'}
+            
+2025-07-07 16:25:44,898 [INFO] 🧠 Invoking LLM to synthesize final response from tool outputs...
+2025-07-07 16:25:46,571 [INFO] ✅ Final response generated successfully.
+2025-07-07 16:25:58,444 [INFO] 📨 Message received — User: jared_wang_csce121ugta (ID: 667711810140373025)
+2025-07-07 16:25:58,446 [INFO] 📨 Channel: general (ID: 1384276333047320640)
+2025-07-07 16:25:58,446 [INFO] 💬 Content: clear
+2025-07-07 16:26:04,550 [INFO] 📨 Message received — User: jared_wang_csce121ugta (ID: 667711810140373025)
+2025-07-07 16:26:04,551 [INFO] 📨 Channel: general (ID: 1384276333047320640)
+2025-07-07 16:26:04,551 [INFO] 💬 Content: exit
