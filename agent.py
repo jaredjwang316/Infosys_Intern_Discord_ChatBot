@@ -410,3 +410,10 @@ builder.add_edge("tools", "conductor")
 chat_memory, thread_id = local_memory.get_chat_memory()
 
 agent_graph = builder.compile(checkpointer=chat_memory)
+
+# TODO Add logging using python logging library
+# TODO Add better local memory management (basically first test to see if memory is going through properly)
+# TODO Add error handling for tool calls and responses for the logging
+# TODO When logging, make a class to filter out sensitive information (api keys, passwords, etc.)
+# TODO Calendar is now low priority, do it last. First focus on making data visualization and search work well, make a better summary tool that works 
+# with the return from search and query tools.
