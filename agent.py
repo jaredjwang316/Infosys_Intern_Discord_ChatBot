@@ -8,6 +8,7 @@ from langchain_core.messages import SystemMessage, HumanMessage, AIMessage, Tool
 from langchain_core.tools import tool
 from langchain.schema import Document
 from langgraph.prebuilt import ToolNode, tools_condition
+import logging
 import datetime
 import concurrent.futures
 
@@ -15,6 +16,9 @@ from functions.query import query_data
 from functions.summary import summarize_conversation, summarize_conversation_by_time
 from functions.search import search_conversation, search_conversation_quick
 from local_memory import LocalMemory
+
+# Set up basic logging to console (or change to a file later)
+logging.basicConfig(level=logging.INFO)
 
 os.environ["GOOGLE_API_KEY"] = os.getenv("GOOGLE_API_KEY")
 model_name = os.getenv("MODEL_NAME")
@@ -291,15 +295,26 @@ def conductor(state: State) -> dict:
 
     # 3) Execute each requested tool, but append results as AIMessage
     tool_map = {t.name: t for t in (query, summarize, summarize_by_time, search)}
-    for idx, call in enumerate(plan.tool_calls):
+    for call in plan.tool_calls:
         name = call["name"]
         args = call.get("args", {})
         if name not in tool_map:
             raise ValueError(f"Unknown tool: {name}")
 
+        # Run the tool
         result = tool_map[name](args)
 
-        # Inject back as a plain AIMessage so Google’s API can handle it
+        # Log the tool usage
+        logging.info(
+            f"""🛠️ Tool Executed: {name}
+            ⏰ Time: {datetime.datetime.now().isoformat()}
+            👤 User: {state['current_user']}
+            💬 Channel: {state['current_channel']}
+            🧾 Args: {args}
+            """
+        )
+
+        # Append tool output as AI message
         messages.append(AIMessage(content=f"[{name} output]:\n{result}"))
 
     # 4) Final synthesis—only System/Human/AI messages here
@@ -310,6 +325,7 @@ def conductor(state: State) -> dict:
             )
         ]
     )
+
     return {"messages": [final]}
 
 def router(state: State) -> str:
