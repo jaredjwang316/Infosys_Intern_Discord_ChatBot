@@ -335,7 +335,6 @@ def conductor(state: State) -> dict:
             🧾 Args: {args}
             """
         )
-        logging.info(f"📤 Tool output: {result}")
 
         # Append tool output as AI message
         messages.append(AIMessage(content=f"[{name} output]:\n{result}"))
@@ -349,7 +348,7 @@ def conductor(state: State) -> dict:
             )
         ]
     )
-    logging.info(f"✅ Final response generated: {final.content}")
+    logging.info("✅ Final response generated successfully.")
 
     return {"messages": [final]}
 

@@ -1,6 +1,8 @@
 import os
 import discord
 import logging
+import sys
+import asyncio
 
 from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -86,7 +88,7 @@ async def on_message(message):
     logging.info(f"📨 Message received — User: {message.author} (ID: {message.author.id})")
     logging.info(f"📨 Channel: {message.channel} (ID: {message.channel.id})")
     logging.info(f"💬 Content: {message.content}")
-    
+
     user_id      = message.author.id    #unique Discord user ID of the message sender.
     user_name    = message.author.mention   #string to mention/tag the user in a message.
     user_message = message.content.strip()  #actual text content of the message the user sent.
@@ -258,7 +260,12 @@ async def on_message(message):
         await message.channel.send("🔒 Saving memory and shutting down...")
         local_memory.store_all_in_long_term_memory()
         await message.channel.send("💀 Goodbye!")
-        exit()
+        await client.close()  # Properly closes all tasks
+
+        # Delay exit to give `client.close()` time to propagate
+        loop = asyncio.get_event_loop()
+        loop.call_soon_threadsafe(loop.stop)
+        return  # prevent further handling
 
     # ---- Help command -----------------------------------------------------------------------------------------------------------------------
     if user_message.lower() == "help":
@@ -338,4 +345,11 @@ async def on_message(message):
     else:
         local_memory.add_message(channel_id, user_name, user_message)
 
-client.run(discord_token)
+try:
+    client.run(discord_token)
+except KeyboardInterrupt:
+    print("⚙️ Bot interrupted and shutting down...")
+    sys.exit(0)
+except SystemExit:
+    print("✅ Bot exited successfully.")
+    raise
