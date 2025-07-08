@@ -1,3 +1,22 @@
+"""
+discord_bot.py
+
+Purpose:
+--------
+This script launches an AI-powered chatbot as a Discord bot using Python. The bot responds to user messages 
+intelligently by leveraging Google’s Gemini model through LangChain and LangGraph, with full memory and 
+tool-using capabilities. 
+
+Rather than building a language model from scratch, this project integrates Gemini via API to power natural 
+language responses, enabling a lightweight, intelligent assistant experience directly inside Discord.
+
+Key Technologies:
+-----------------
+- 🧠 **Gemini API (via LangChain)** — Handles language understanding and response generation.
+- 🔗 **LangGraph + LangChain** — Powers decision-making logic and tool integration (e.g., search, summarization).
+- 💾 **LocalMemory** — Manages per-channel memory for context-aware conversations, aka short-term memory.
+- 💬 **discord_bot.py** — Handles real-time interaction with users in Discord servers.
+"""
 import os
 import discord
 import logging
