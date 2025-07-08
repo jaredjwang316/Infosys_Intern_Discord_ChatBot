@@ -7,6 +7,8 @@ from langchain_community.vectorstores import PGVector
 import os
 from dotenv import load_dotenv
 
+from remote_memory import RemoteMemory
+
 load_dotenv()
 api_key = os.getenv("GOOGLE_API_KEY")
 
@@ -22,12 +24,7 @@ embedding_model = GoogleGenerativeAIEmbeddings(
     model="models/text-embedding-004"
 )
 
-long_vectorstore = PGVector(
-    collection_name="chat_embeddings",
-    connection_string=connection_string,
-    embedding_function=embedding_model,
-    distance_strategy="cosine"
-)
+remote_memory = RemoteMemory()
 
 class LocalMemory:
     """
@@ -344,7 +341,7 @@ class LocalMemory:
         documents = self.get_cached_history_documents(channel_id)
 
         if documents:
-            long_vectorstore.add_documents(documents)
+            remote_memory.add_documents(documents)
             self.clear_cached_history(channel_id)
             print(f"Stored {len(documents)} documents from channel {channel_id} into long-term memory.")
         else:

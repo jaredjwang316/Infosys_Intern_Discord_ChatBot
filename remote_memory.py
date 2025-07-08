@@ -20,9 +20,6 @@ PG_CONFIG = {
     "dbname":   os.getenv("DB_NAME"),
 }
 
-# TODO: Make sure to either combine bot messages with user messages, but main thing is just 
-# to keep the similarity searches based only on user messages, not bot messages.
-
 class RemoteMemory:
     def __init__(self):
         print("Connecting to Postgres...")
