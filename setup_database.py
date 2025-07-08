@@ -47,8 +47,9 @@ def transform_mysql_to_postgres(stmt: str) -> str:
 
     Replaces:
     - INT AUTO_INCREMENT PRIMARY KEY → SERIAL PRIMARY KEY
-    - Backticks with double quotes
     - ENGINE/CHARSET definitions (PostgreSQL doesn't use these)
+
+    Removes backticks
     """
 
     # 1) INT AUTO_INCREMENT → SERIAL PRIMARY KEY
