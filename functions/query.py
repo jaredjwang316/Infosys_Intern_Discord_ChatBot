@@ -128,6 +128,7 @@ user_chat_history = {}
 total_chat_history = {}
 
 tips = str()
+db_schema = SCHEMA_TEXT
 
 def strip_query(query):
     # Remove common code fences and leading/trailing whitespace, but not quotes inside
@@ -144,7 +145,6 @@ def strip_query(query):
 def generate_query(sql_query):
     # change prompt to not be a hypothetical if correct. Validating will be the next step.
 
-    db_schema = SCHEMA_TEXT
     global tips
     tips = "PostgreSQL does not support strftime(). Use TO_CHAR(date_column, 'YYYY-MM') instead to format dates."
     if tips:
@@ -238,7 +238,7 @@ def retry_query(sql_query, information=None):
         - Ensure the SQL query is syntactically correct.
         - Use appropriate table and column names from the schema.
         - Do not use comments, markdown, or any other formatting in the SQL query (i.e. sql```...```).
-        - If asked for a certain type of email (.com, .org, etc.), search the end of the email adress.
+        - If asked for a certain type of email (.com, .org, etc.), search the end of the email address.
 
         ### DATABASE SCHEMA ###
         {SCHEMA_TEXT}
