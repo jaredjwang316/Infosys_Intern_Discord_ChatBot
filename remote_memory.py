@@ -7,6 +7,7 @@ import numpy as np
 
 from langchain.schema import Document
 from google import genai
+from google.genai import types
 
 load_dotenv()
 api_key = os.getenv("GOOGLE_API_KEY")
@@ -62,10 +63,11 @@ class RemoteMemory:
             create_table_query = f"""
             CREATE TABLE IF NOT EXISTS {channel_id} (
                 message_id SERIAL PRIMARY KEY,
-                sender TEXT,
-                timestamp TIMESTAMP,
-                content TEXT,
-                embedding vector(768)
+                sender TEXT NOT NULL,
+                timestamp TIMESTAMP NOT NULL,
+                content TEXT NOT NULL,
+                bot_message TEXT NULL,
+                embedding vector(768) NOT NULL
             );
             """
             self.cur.execute(create_table_query)
@@ -80,25 +82,45 @@ class RemoteMemory:
 
             print(f"Channel added: {channel_id}")
 
-    # TODO: Implement this function to group user and bot messages.
-    def _group_user_bot_messages(self, documents: list[Document]) -> list:
+    def _group_user_bot_messages(self, documents: list[Document]) -> list[dict]:
         """
         Group user and bot messages into a single Document object for each unique timestamp.
         This is to ensure that we only store user messages in the similarity search.
         Args:
             documents (list[Document]): A list of Document objects with metadata containing 'role' and 'timestamp'.
         Returns:
-            list: A list of grouped dicts.
+            list[dict]: A list of dictionaries, each containing 'user', 'timestamp', 'content', and 'bot_message'.
         """
         grouped_docs = []
         
+        current_docs = {}
         for i in range(len(documents)):
             doc = documents[i]
-            role = doc.metadata.get('role', 'Unknown')
+            role = doc.metadata.get('role', 'Unknown').lower()
             timestamp = doc.metadata.get('timestamp', datetime.datetime.now(datetime.timezone.utc))
+            content = doc.page_content
 
-            if i < len(documents) - 1:
-                pass
+            # If the role is user, we need to finalize the previous document.
+            # If the role is bot, we can continue adding to the current document.
+            if role != 'bot':
+                if current_docs:
+                    grouped_docs.append(current_docs)
+
+                current_docs = {
+                    'user': role,
+                    'timestamp': timestamp,
+                    'content': content,
+                    'bot_message': ''
+                }
+
+            elif current_docs:
+                bot_message = current_docs.get('bot_message', '') + content + '\n'
+                current_docs['bot_message'] = bot_message
+
+        if current_docs:
+            grouped_docs.append(current_docs)
+
+        return grouped_docs
 
     def add_documents(self, channel_id, documents: list[Document]) -> None:
         """
@@ -109,17 +131,27 @@ class RemoteMemory:
             documents (list[Document]): A list of Document objects to add.
         """
 
-        texts = [doc.page_content for doc in documents]
-        embeddings = self._get_embedding(texts)
-
-        roles = [doc.metadata.get('role', 'Unknown') for doc in documents]
-        timestamps = [
-            doc.metadata.get('timestamp', datetime.datetime.now(datetime.timezone.utc))
-            for doc in documents
+        if not documents:
+            print("No documents to add.")
+            return
+        
+        grouped_docs = self._group_user_bot_messages(documents)
+        
+        filtered_docs = [
+            doc for doc in grouped_docs
+            if doc.get('user') and doc.get('timestamp') and doc.get('content')
         ]
-        contents = texts
 
-        data = np.array(list(zip(roles, timestamps, contents, embeddings)))
+        if not filtered_docs:
+            print("No valid user messages found after filtering.")
+            return
+        
+        contents_to_embed = [doc['content'] for doc in filtered_docs]
+
+        embeddings = self._get_embedding(contents_to_embed)
+
+        for i, doc in enumerate(filtered_docs):
+            doc['embedding'] = embeddings[i]
 
         self._add_channel(channel_id)
 
@@ -127,14 +159,14 @@ class RemoteMemory:
         INSERT INTO {channel_id} (sender, timestamp, content, embedding)
         VALUES (%s, %s, %s, %s)
         """
-        for i in range(len(data)):
+        for doc in filtered_docs:
             self.cur.execute(insert_query, (
-                data[i][0],  # sender
-                data[i][1],  # timestamp
-                data[i][2],  # content
-                data[i][3]   # embedding
+                doc['user'],
+                doc['timestamp'],
+                doc['content'],
+                doc['embedding']
             ))
-        print(f"Added {len(documents)} documents to channel {channel_id}.")
+        print(f"Added {len(filtered_docs)} documents to channel {channel_id}.")
 
     def _get_embedding(self, texts: list[str]):
         """
@@ -142,11 +174,51 @@ class RemoteMemory:
         Args:
             texts (list[str]): A list of text strings to embed.
         """
-        response = self.client.embed_content(
-            model="models/text-embedding-004",
-            contents=texts
-        )
-        return response.embeddings
+        if not texts:
+            return []
+        
+        max_batch_size = 250
+        max_tokens_per_request = 18000
+        max_tokens_per_text = 1900
+
+        def estimate_tokens(text):
+            return len(text) // 4 + 1
+
+        all_embeddings = []
+        current_batch = []
+        current_token_count = 0
+
+        for text in texts:
+            if estimate_tokens(text) > max_tokens_per_text:
+                text = text[:max_tokens_per_text * 4]
+            
+            text_tokens = estimate_tokens(text)
+            
+            if (len(current_batch) >= max_batch_size or 
+                current_token_count + text_tokens > max_tokens_per_request):
+
+                if current_batch:
+                    response = self.client.embed_content(
+                        model="models/text-embedding-004",
+                        contents=current_batch,
+                        config=types.EmbedContentConfig(task_type="SEMANTIC_SIMILARITY")
+                    )
+                    all_embeddings.extend(response.embeddings)
+                    current_batch = []
+                    current_token_count = 0
+            
+            current_batch.append(text)
+            current_token_count += text_tokens
+
+        if current_batch:
+            response = self.client.embed_content(
+                model="models/text-embedding-004",
+                contents=current_batch,
+                config=types.EmbedContentConfig(task_type="SEMANTIC_SIMILARITY")
+            )
+            all_embeddings.extend(response.embeddings)
+
+        return all_embeddings
     
     def search_documents(self, channel_id: int, query: str, k: int = 5, cutoff: float = 0.7) -> list[dict]:
         """
