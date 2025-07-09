@@ -1,3 +1,22 @@
+"""
+memory_storage.py
+
+This module defines the MemoryStorage class, which manages hybrid memory for a chat application
+using both in-memory (short-term) and persistent PostgreSQL-based vector memory (long-term).
+
+MemoryStorage intelligently combines fast local retrieval with long-term archival,
+enabling real-time conversation handling, summarization, and semantic search.
+
+Components:
+- LocalMemory: Keeps recent conversations in RAM for quick access.
+- RemoteMemory: Stores embedded documents in a PostgreSQL + PGVector vector store.
+- MemoryStorage: Coordinates between LocalMemory and RemoteMemory, supporting:
+    • Adding messages
+    • Flushing to long-term storage
+    • Time-range retrieval
+    • Semantic search on past data
+"""
+
 from datetime import datetime
 from langchain_core.vectorstores import InMemoryVectorStore
 from memory.remote_memory import RemoteMemory
@@ -6,6 +25,19 @@ from memory.local_memory import LocalMemory
 MAX_CACHED_MESSAGES = 20
 
 class MemoryStorage:
+    """
+    MemoryStorage is the central manager for hybrid memory in the chat system.
+
+    It handles:
+    - Caching recent messages in memory
+    - Flushing memory to long-term PostgreSQL vector store
+    - Semantic search across both memory types
+    - Time-based retrieval of messages
+
+    Combines:
+    - LocalMemory (InMemoryVectorStore) for short-term speed
+    - RemoteMemory (PGVector/PostgreSQL) for persistence and scale
+    """
     def __init__(self):
         self.local_memory = LocalMemory()
         self.remote_memory = RemoteMemory()
