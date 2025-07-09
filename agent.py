@@ -16,6 +16,7 @@ from functions.query import query_data
 from functions.summary import summarize_conversation, summarize_conversation_by_time
 from functions.search import search_conversation, search_conversation_quick
 from local_memory import LocalMemory
+from remote_memory import RemoteMemory
 
 # Ensure the logs directory exists
 os.makedirs("logs", exist_ok=True)
@@ -46,6 +47,7 @@ llm = ChatGoogleGenerativeAI(
 )
 
 local_memory = LocalMemory()
+remote_memory = RemoteMemory()
 
 @tool
 def query(user_id: str, user_query: str) -> list[str]:
@@ -125,7 +127,7 @@ def search(channel_id: str, query: str) -> str:
     quick_result = search_conversation_quick(local_memory.get_vectorstore(channel_id), query)
     
     with concurrent.futures.ThreadPoolExecutor() as executor:
-        future = executor.submit(search_conversation, query, local_memory.get_cached_history_documents(channel_id), quick_result)
+        future = executor.submit(search_conversation, local_memory, remote_memory, channel_id, query, quick_result)
 
         total_result = None
         try:

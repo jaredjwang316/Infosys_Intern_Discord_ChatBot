@@ -20,10 +20,6 @@ db_password = os.getenv("DB_PASSWORD")
 
 connection_string = f"postgresql+psycopg2://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
 
-embedding_model = GoogleGenerativeAIEmbeddings(
-    model="models/text-embedding-004"
-)
-
 remote_memory = RemoteMemory()
 
 class LocalMemory:
@@ -53,7 +49,8 @@ class LocalMemory:
             max_retries=2
         )
         self.embedding_model = GoogleGenerativeAIEmbeddings(
-            model="models/text-embedding-004"
+            model="models/text-embedding-004",
+            task_type="SEMANTIC_SIMILARITY"
         )
 
     def _find_last_command_type(self, user_id, doc):
@@ -111,7 +108,6 @@ class LocalMemory:
             self.user_query_session_history[user_id].append(doc)
         else:
             self.user_query_session_history[user_id] = []
-        
 
     def add_message(self, channel_id, user_id, content):
         """
@@ -341,7 +337,7 @@ class LocalMemory:
         documents = self.get_cached_history_documents(channel_id)
 
         if documents:
-            remote_memory.add_documents(documents)
+            remote_memory.add_documents(channel_id, documents)
             self.clear_cached_history(channel_id)
             print(f"Stored {len(documents)} documents from channel {channel_id} into long-term memory.")
         else:

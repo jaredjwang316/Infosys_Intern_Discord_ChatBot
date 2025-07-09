@@ -28,13 +28,6 @@ embedding_model = GoogleGenerativeAIEmbeddings(
 
 connection_string = f"postgresql+psycopg2://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
 
-long_vectorstore = PGVector(
-    collection_name="chat_embeddings",
-    connection_string=connection_string,
-    embedding_function=embedding_model,
-    distance_strategy="cosine"
-)
-
 def search_conversation_quick(short_vectorstore, search_query):
     print("Searching short-term memory...")
     short_results = short_vectorstore.similarity_search(search_query, k=5)
@@ -71,26 +64,26 @@ def search_conversation_quick(short_vectorstore, search_query):
             fallback_response += f"• {role} ({timestamp}): {doc.page_content}\n"
         return fallback_response
 
-def search_conversation(search_query, cached_chat_history, quick_result):
+def search_conversation(local_memory, remote_memory, channel_id, search_query, quick_result):
     print("Searching using both short-term and long-term memory...")
 
-    if cached_chat_history:
-        long_vectorstore.add_documents(cached_chat_history)
+    local_memory.store_in_long_term_memory(channel_id)
     
     print("Finished adding cached chat history to long-term memory.")
 
     print("🔍 Searching long-term memory...")
-    long_results = long_vectorstore.similarity_search(search_query, k=5)
+    long_results = remote_memory.search_documents(channel_id, search_query, 5, 0.7)
     
     # Remove duplicates based on content
     unique_results = []
     seen_content = set()
     for doc in long_results:
-        if doc.page_content not in seen_content:
+        if doc.get('content') not in seen_content:
             unique_results.append(doc)
-            seen_content.add(doc.page_content)
+            seen_content.add(doc.get('content'))
     
-    print(f"📊 Found {len(long_results)} in long-term")
+    print(f"📊 Found {len(unique_results)} in long-term")
+    print(unique_results)
     
     if not unique_results:
         return None
@@ -98,10 +91,10 @@ def search_conversation(search_query, cached_chat_history, quick_result):
     # Create a combined context from both short and long term results
     combined_context = ""
     for i, doc in enumerate(unique_results):
-        role = doc.metadata.get('role', 'Unknown')
-        timestamp = doc.metadata.get('timestamp', 'Unknown time')
-        combined_context += f"[{i+1}] {role} ({timestamp}): {doc.page_content}\n"
-    
+        role = doc.get('sender', 'Unknown')
+        timestamp = doc.get('timestamp', 'Unknown time')
+        combined_context += f"[{i+1}] {role} ({timestamp}): {doc.get('content')}\n"
+
     # Use the model to synthesize information from both sources
     synthesis_prompt = f"""
     Based on the following conversation excerpts from historical messages, 

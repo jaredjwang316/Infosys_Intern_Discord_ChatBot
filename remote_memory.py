@@ -32,7 +32,53 @@ class RemoteMemory:
             raise
         print("Connected to Postgres successfully!")
 
+        vector_extension = """
+        CREATE EXTENSION IF NOT EXISTS vector;
+        """
+        self.cur.execute(vector_extension)
+
+        create_channels_table_query = """
+        CREATE TABLE IF NOT EXISTS channels (
+            channel_id BIGINT PRIMARY KEY,
+            thread_id  BIGSERIAL NOT NULL
+        );
+        """
+        self.cur.execute(create_channels_table_query)
+        print("Channels table created or already exists.")
+
+        self.ef_search = {}
+
+        find_channel_ids_query = """
+        SELECT DISTINCT channel_id
+        FROM channels;
+        """
+        self.cur.execute(find_channel_ids_query)
+        channel_ids = self.cur.fetchall()
+
+        for channel_id in channel_ids:
+            self.ef_search[channel_id[0]] = 64
+
         self.client = genai.Client(api_key=api_key)
+
+    def get_thread_id(self, channel_id: int) -> int:
+        """
+        Retrieve the thread_id for a given channel_id from the channels table.
+        Args:
+            channel_id (int): The ID of the channel.
+        Returns:
+            int: The thread_id associated with the channel_id, or None if not found.
+        """
+
+        self._add_channel(channel_id)
+
+        query = """
+        SELECT thread_id
+        FROM channels
+        WHERE channel_id = %s;
+        """
+        self.cur.execute(query, (channel_id,))
+        result = self.cur.fetchone()
+        return result[0] if result else None
 
     def _add_channel(self, channel_id: int) -> None:
         """
@@ -43,36 +89,39 @@ class RemoteMemory:
             channel_id (int): The ID of the channel to add.
         """
         check_query = """
-        SELECT channel_id
-        FROM channels
-        WHERE channel_id = %s;
+        SELECT EXISTS (
+            SELECT 1
+            FROM channels
+            WHERE channel_id = %s
+        );
         """
         self.cur.execute(check_query, (channel_id,))
         result = self.cur.fetchone()
 
-        if not result:
+        if not result[0]:
             insert_query = """
             INSERT INTO channels (channel_id)
             VALUES (%s)
             """
             self.cur.execute(insert_query, (channel_id,))
 
+            table_name = f"ch_{channel_id}"
             create_table_query = f"""
-            CREATE TABLE IF NOT EXISTS {channel_id} (
-                message_id SERIAL PRIMARY KEY,
-                sender TEXT NOT NULL,
-                timestamp TIMESTAMP NOT NULL,
-                content TEXT NOT NULL,
-                bot_message TEXT NULL,
-                embedding vector(768) NOT NULL
+            CREATE TABLE IF NOT EXISTS {table_name} (
+                message_id     SERIAL PRIMARY KEY,
+                sender         TEXT         NOT NULL,
+                timestamp      TIMESTAMP    NOT NULL,
+                content        TEXT         NOT NULL,
+                bot_message    TEXT         NULL,
+                embedding      vector(768)  NOT NULL
             );
             """
             self.cur.execute(create_table_query)
 
             index_query = f"""
-            CREATE INDEX ON {channel_id}
-            USING ivfflat (embedding vector_cosine_ops)
-            WITH (lists = 10)
+            CREATE INDEX ON {table_name}
+            USING hnsw (embedding vector_l2_ops)
+            WITH (m = 16, ef_construction = 64);
             """
 
             self.cur.execute(index_query)
@@ -152,8 +201,9 @@ class RemoteMemory:
 
         self._add_channel(channel_id)
 
+        table_name = f"ch_{channel_id}"
         insert_query = f"""
-        INSERT INTO {channel_id} (sender, timestamp, content, embedding)
+        INSERT INTO {table_name} (sender, timestamp, content, embedding)
         VALUES (%s, %s, %s, %s)
         """
         for doc in filtered_docs:
@@ -195,12 +245,16 @@ class RemoteMemory:
                 current_token_count + text_tokens > max_tokens_per_request):
 
                 if current_batch:
-                    response = self.client.embed_content(
+                    response = self.client.models.embed_content(
                         model="models/text-embedding-004",
                         contents=current_batch,
                         config=types.EmbedContentConfig(task_type="SEMANTIC_SIMILARITY")
                     )
-                    all_embeddings.extend(response.embeddings)
+                    for embedding in response.embeddings:
+                        if hasattr(embedding, 'values'):
+                            all_embeddings.append(embedding.values)
+                        else:
+                            all_embeddings.append(list(embedding))
                     current_batch = []
                     current_token_count = 0
             
@@ -208,12 +262,16 @@ class RemoteMemory:
             current_token_count += text_tokens
 
         if current_batch:
-            response = self.client.embed_content(
+            response = self.client.models.embed_content(
                 model="models/text-embedding-004",
                 contents=current_batch,
                 config=types.EmbedContentConfig(task_type="SEMANTIC_SIMILARITY")
             )
-            all_embeddings.extend(response.embeddings)
+            for embedding in response.embeddings:
+                if hasattr(embedding, 'values'):
+                    all_embeddings.append(embedding.values)
+                else:
+                    all_embeddings.append(list(embedding))
 
         return all_embeddings
     
@@ -233,10 +291,12 @@ class RemoteMemory:
 
         query_embedding = self._get_embedding([query])[0]
 
+        table_name = f"ch_{channel_id}"
         search_query = f"""
+        SET LOCAL hnsw.ef_search = {self.ef_search.get(channel_id, 64)};
         SELECT sender, timestamp, content, embedding
-        FROM {channel_id}
-        ORDER BY embedding <=> %s
+        FROM {table_name}
+        ORDER BY embedding <=> %s::vector
         LIMIT %s;
         """
         
@@ -246,8 +306,16 @@ class RemoteMemory:
         filtered_results = []
         for result in results:
             sender, timestamp, content, embedding = result
-            similarity = np.dot(query_embedding, embedding) / (
-                np.linalg.norm(query_embedding) * np.linalg.norm(embedding)
+            if isinstance(embedding, str):
+                embedding_str = embedding.strip('[]')
+                embedding_array = np.array([float(x.strip()) for x in embedding_str.split(',')])
+            else:
+                embedding_array = np.array(embedding)
+
+            query_array = np.array(query_embedding)
+
+            similarity = np.dot(query_array, embedding_array) / (
+                np.linalg.norm(query_array) * np.linalg.norm(embedding_array)
             )
             if similarity >= cutoff:
                 filtered_results.append({
@@ -272,9 +340,11 @@ class RemoteMemory:
         """
         self._add_channel(channel_id)
 
+        table_name = f"ch_{channel_id}"
         search_query = f"""
+        SET LOCAL hnsw.ef_search = {self.ef_search.get(channel_id, 64)};
         SELECT sender, timestamp, content
-        FROM {channel_id}
+        FROM {table_name}
         WHERE timestamp >= %s AND timestamp <= %s
         ORDER BY timestamp ASC;
         """
@@ -283,7 +353,7 @@ class RemoteMemory:
         results = self.cur.fetchall()
 
         if not results:
-            return "No documents found in the specified time range."
+            return []
 
         formatted_results = []
         for sender, timestamp, content in results:
@@ -294,18 +364,22 @@ class RemoteMemory:
             })
 
         return formatted_results
-    
-    def reindex_channel(self, channel_id: int, num_lists: int) -> None:
+
+    def reindex_channel(self, channel_id: int, m: int, ef_search: int) -> None:
         """
         Reindexes the specified channel with the specified number of lists.
         Args:
             channel_id (int): The ID of the channel to reindex.
-            num_lists (int): The number of lists to reindex to.
+            m (int): The number of lists to reindex to.
+            ef_search (int): The size of the dynamic list for each query.
         """
 
+        self.ef_search[channel_id] = ef_search
+
+        table_name = f"ch_{channel_id}"
         index_query = f"""
-        CREATE INDEX ON {channel_id}
-        USING ivfflat (embedding vector_cosine_ops)
-        WITH (lists = {num_lists});
+        CREATE INDEX ON {table_name}
+        USING hnsw (embedding vector_l2_ops)
+        WITH (m = {m}, ef_search = {ef_search});
         """
         self.cur.execute(index_query)
