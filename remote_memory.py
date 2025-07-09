@@ -69,11 +69,20 @@ class RemoteMemory:
             """
             self.cur.execute(create_table_query)
 
+            # # IVFFLAT
+            # index_query = f"""
+            # CREATE INDEX ON {channel_id}
+            # USING ivfflat (embedding vector_cosine_ops)
+            # WITH (lists = 10)
+            # """
+
+            # HNSW
             index_query = f"""
             CREATE INDEX ON {channel_id}
-            USING ivfflat (embedding vector_cosine_ops)
-            WITH (lists = 10)
+            USING hnsw (embedding vector_cosine_ops)
+            WITH (m = 12, ef_construction = 100, ef_search = 40);
             """
+            self.cur.execute("SET hnsw.ef_search = 40;")
 
             self.cur.execute(index_query)
 
@@ -303,9 +312,19 @@ class RemoteMemory:
             num_lists (int): The number of lists to reindex to.
         """
 
+        # # IVFFLAT
+        # index_query = f"""
+        # CREATE INDEX ON {channel_id}
+        # USING ivfflat (embedding vector_cosine_ops)
+        # WITH (lists = {num_lists});
+        # """
+
+        # HNSW
         index_query = f"""
         CREATE INDEX ON {channel_id}
-        USING ivfflat (embedding vector_cosine_ops)
-        WITH (lists = {num_lists});
+        USING hnsw (embedding vector_cosine_ops)
+        WITH (m = 12, ef_construction = 100, ef_search = 40);
         """
+        self.cur.execute("SET hnsw.ef_search = 40;")
+
         self.cur.execute(index_query)
