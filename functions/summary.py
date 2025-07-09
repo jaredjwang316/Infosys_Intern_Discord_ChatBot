@@ -1,3 +1,21 @@
+"""
+summarize.py
+
+Purpose:
+--------
+This script enables summarization of Discord conversations stored in a PostgreSQL-backed vector database.
+It extracts chat logs from a specified time range and generates a clean, structured summary using the Gemini
+language model via LangChain.
+
+Key Technologies:
+-----------------
+- 🧠 **Google Generative AI (via LangChain)** — Powers the summarization of user-bot interactions.
+- 🗃️ **PostgreSQL (via psycopg2)** — Stores vector-embedded chat messages along with metadata like timestamp and role.
+- 📅 **Time-Filtered Search** — Allows for summaries scoped by channel and time range.
+
+This module is especially useful for generating meeting recaps, daily briefings, or topic-driven summaries 
+from long-running chat logs.
+"""
 import os
 from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI

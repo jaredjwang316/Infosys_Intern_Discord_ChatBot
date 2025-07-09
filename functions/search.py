@@ -1,3 +1,21 @@
+"""
+search.py
+
+Purpose:
+--------
+This module implements search capabilities over both short-term (in-memory) and long-term (vector database) 
+chat history using semantic similarity. It leverages Google's Gemini model via LangChain to search relevant 
+information from past conversations.
+
+Key Technologies:
+-----------------
+- 🔍 **GoogleGenerativeAIEmbeddings** — Generates semantic embeddings for stored chat messages.
+- 🧠 **PGVector** — Manages long-term memory using a PostgreSQL + vector database backend.
+
+This file enables intelligent, context-aware recall of prior discussion points to answer follow-up questions 
+or regenerate summary insights.
+"""
+
 import os
 from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
@@ -36,6 +54,16 @@ long_vectorstore = PGVector(
 )
 
 def search_conversation_quick(short_vectorstore, search_query):
+    """
+    Searches recent conversation history (short-term memory) for messages semantically similar to the user's query.
+
+    Parameters:
+        short_vectorstore (VectorStore): A temporary in-memory vectorstore containing recent chat messages.
+        search_query (str): The user's current query to search for in prior messages.
+
+    Returns:
+        str: A Gemini-generated summary of relevant recent messages, or fallback raw excerpts if generation fails.
+    """
     print("Searching short-term memory...")
     short_results = short_vectorstore.similarity_search(search_query, k=5)
 
@@ -72,6 +100,18 @@ def search_conversation_quick(short_vectorstore, search_query):
         return fallback_response
 
 def search_conversation(search_query, cached_chat_history, quick_result):
+    """
+    Performs a full search over both short-term and long-term memory to retrieve and synthesize relevant information.
+
+    Parameters:
+        search_query (str): The user’s search intent or topic of interest.
+        cached_chat_history (List[Document]): List of recent chat history entries to store in long-term memory.
+        quick_result (str): The summary previously generated from short-term memory to avoid redundancy.
+
+    Returns:
+        str: A synthesized, bullet-point summary of all information related to the query, drawn from long-term memory.
+        Falls back to raw results if searching fails.
+    """
     print("Searching using both short-term and long-term memory...")
 
     if cached_chat_history:
