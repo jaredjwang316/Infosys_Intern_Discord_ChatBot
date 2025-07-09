@@ -7,7 +7,8 @@ import datetime
 import concurrent.futures
 import re
 
-from functions.query import query_data
+from functions.query import *
+from functions.calendar import * 
 from functions.summary import summarize_conversation, summarize_conversation_by_time
 from functions.search import search_conversation, search_conversation_quick
 from local_memory import LocalMemory
@@ -204,6 +205,58 @@ async def on_message(message):
             local_memory.add_message(channel_id, "Bot", total_result if total_result else quick_result)
 
         return
+
+    # ---- Calendar handler -----------------------------------------------------------------------------------------------------------------
+    if user_message.lower().startswith("event: "):
+        event_details = user_message[7:].strip()
+        guild = message.guild
+
+        
+        try:
+            event_dict = get_event_details(event_details)
+
+            overwrites = {guild.default_role: discord.PermissionOverwrite(connect=False)}
+            overwrites[message.author] = discord.PermissionOverwrite(connect=True)
+
+            for guest in message.mentions:
+                if guest:
+                    overwrites[guest] = discord.PermissionOverwrite(connect=True)
+
+            # Create Discord event
+
+            voice_channel = await guild.create_voice_channel(
+                name=event_dict['title'],
+                overwrites=overwrites
+            )
+
+            discord_event = await guild.create_scheduled_event(
+                name=event_dict['title'],
+                start_time=event_dict['start_dt'],
+                end_time=event_dict['end_dt'],
+                entity_type=discord.EntityType.voice,
+                channel=voice_channel,
+                privacy_level=discord.PrivacyLevel.guild_only
+            )
+
+            await message.channel.send(f"✅ Scheduled event: {discord_event.name}")
+
+            # Create Google Calendar event
+            #calendar_link = create_gcal_event(event_dict)
+
+            # await message.channel.send(f"📅 Google Calendar event created: {calendar_link}")
+        
+            # for user in message.mentions:
+            #     try:
+            #         await user.send(f"You've been invited to **{event_dict['title']}** on {event_dict['start_dt']}.")
+            #         await user.send(f"📅 You've been invited to **{event_dict['title']}**!\n"
+            #                         f"🕒 When: {event_dict['start_dt']} to {event_dict['end_dt']}\n"
+            #                         f"🔗 Add it to your calendar: {calendar_link}")
+            #     except discord.Forbidden:
+            #         print(f"❌ Can't DM {user.name}")
+        
+        except Exception as e:
+            await message.channel.send(f"❌ Failed to create event: {e}")
+
 
     # ---- Testing utilities ----------------------------------------------------------------------------------------------------------------
     if user_message.lower() == "test":
