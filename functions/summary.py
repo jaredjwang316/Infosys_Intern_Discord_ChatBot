@@ -1,5 +1,5 @@
 """
-summarize.py
+summary.py
 
 Purpose:
 --------

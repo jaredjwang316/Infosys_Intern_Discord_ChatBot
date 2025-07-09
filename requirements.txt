@@ -1,3 +1,5 @@
+asyncio
+sys
 python-dotenv
 discord
 logging

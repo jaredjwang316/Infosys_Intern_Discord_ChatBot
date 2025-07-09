@@ -1,3 +1,34 @@
+"""
+local_memory.py
+
+Purpose:
+--------
+This module defines the `LocalMemory` class, which manages short-term and long-term memory for an AI-powered
+chatbot running on Discord. It supports both in-memory storage for fast session-specific operations and persistent
+vector-based storage (PostgreSQL) for long-term semantic retrieval and historical context.
+
+Key Responsibilities:
+---------------------
+- 🧠 Short-Term Memory: Keeps track of recent chat history per channel for context-aware conversations.
+- 🗃️ Long-Term Memory: Saves embeddings and message metadata into PostgreSQL via `PGVector` for retrieval across sessions.
+- 🧩 Embeddings: Uses Google's `text-embedding-004` model to embed messages for similarity search.
+- 🧵 Session Memory: Tracks last command types, user-specific query history, and thread context.
+- 🧽 Memory Management: Supports clearing, syncing, and retrieving chat history across channels and time ranges.
+
+Use Cases:
+----------
+- Context-aware question answering based on message history.
+- Generating summaries or extracting relevant information from prior interactions.
+- Storing and retrieving messages using vector similarity for follow-up queries.
+
+Key Technologies:
+-----------------
+- **LangChain + LangGraph** — Manages message flow and memory checkpoints.
+- **Google Generative AI (Gemini)** — Embeds messages and powers AI replies.
+- **InMemoryVectorStore** — Stores session messages temporarily in-memory with semantic search capability.
+- **PGVector** — PostgreSQL-backed vector storage for long-term retention of embeddings.
+
+"""
 from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
 from langchain_core.vectorstores import InMemoryVectorStore
 from langgraph.checkpoint.memory import MemorySaver
@@ -61,7 +92,14 @@ class LocalMemory:
 
     def _find_last_command_type(self, user_id, doc):
         """
-        Determines the type of command based on the content of the document.
+        Determines the command type (e.g., 'ask', 'summary', 'query') based on message content.
+
+        Args:
+            user_id (str): The Discord user ID.
+            doc (Document): The document containing message content and metadata.
+
+        Returns:
+            str: Detected command type or previously stored command for the user.
         """
 
         if str(doc.metadata.get("user")).lower() == "bot":
@@ -97,8 +135,15 @@ class LocalMemory:
 
     def _add_message_to_histories(self, channel_id, user_id, doc):
         """
-        Adds a message document to the total chat history and cached chat history for a given channel ID.
-        Also updates the user query session history and last command type.
+        Adds a message to all relevant memory structures:
+        - Total history
+        - Cached history (for long-term sync)
+        - Command history
+
+        Args:
+            channel_id (str): The Discord channel ID.
+            user_id (str): The user who sent the message.
+            doc (Document): The message content and metadata.
         """
 
         self.total_chat_history.setdefault(channel_id, InMemoryVectorStore(embedding=self.embedding_model))
@@ -118,8 +163,12 @@ class LocalMemory:
 
     def add_message(self, channel_id, user_id, content):
         """
-        Adds a message to the chat history for a given channel ID.
-        The message is stored as a Document with metadata including the user and timestamp.
+        Inserts a message into memory with current timestamp.
+
+        Args:
+            channel_id (str): Discord channel ID.
+            user_id (str): User ID of sender.
+            content (str): The message text.
         """
 
         timestamp = datetime.datetime.now().utcnow()
@@ -128,8 +177,11 @@ class LocalMemory:
 
     def add_messages(self, channel_id, messages):
         """
-        Adds multiple messages to the chat history.
-        Each message should be a tuple containing (user_id, content, timestamp).
+        Inserts multiple messages into memory for the channel.
+
+        Args:
+            channel_id (str): Discord channel ID.
+            messages (List[Tuple[str, str, datetime]]): Tuples of (user_id, content, timestamp).
         """
 
         if channel_id not in self.total_chat_history:
@@ -144,9 +196,11 @@ class LocalMemory:
 
     def set_chat_history(self, channel_id, messages):
         """
-        Sets the chat history for a given channel ID.
-        This replaces any existing history with the provided messages.
-        Each message should be a tuple containing (user_id, content, timestamp).
+        Overwrites memory history with new message list for a channel.
+
+        Args:
+            channel_id (str): Discord channel ID.
+            messages (List[Tuple[str, str, datetime]]): Tuples of (user_id, content, timestamp).
         """
 
         self.total_chat_history[channel_id] = InMemoryVectorStore(embedding=self.embedding_model)
@@ -158,8 +212,13 @@ class LocalMemory:
 
     def get_chat_history(self, channel_id):
         """
-        Retrieves the chat history for a given channel ID.
-        Returns a list of tuples containing the user, content, and timestamp of each message.
+        Retrieves full chat history for a channel.
+
+        Args:
+            channel_id (str): Discord channel ID.
+
+        Returns:
+            List[Tuple[str, str, datetime]]: List of (user, content, timestamp).
         """
 
         if channel_id not in self.total_chat_history:
@@ -178,9 +237,10 @@ class LocalMemory:
     
     def get_chat_memory(self):
         """
-        Retrieves the chat memory.
-        This is used for managing conversation context and state.
-        Returns an MemorySaver object.
+        Returns LangGraph-compatible thread memory (MemorySaver) and configuration.
+
+        Returns:
+            Tuple[MemorySaver, Dict]: MemorySaver instance and config with unique thread ID.
         """
 
         self.last_thread_id += 1
@@ -188,9 +248,13 @@ class LocalMemory:
 
     def get_vectorstore(self, channel_id):
         """
-        Retrieves the vector store for a given channel ID.
-        This is used for similarity search and other vector operations.
-        Returns an InMemoryVectorStore object.
+        Returns the current vector store for a channel.
+
+        Args:
+            channel_id (str): Discord channel ID.
+
+        Returns:
+            InMemoryVectorStore: Vector store for similarity search.
         """
 
         if channel_id not in self.total_chat_history:
@@ -200,17 +264,26 @@ class LocalMemory:
     
     def get_last_command_type(self, user_id):
         """
-        Retrieves the last command type for a given channel ID.
-        The command type is determined based on the last message in the chat history.
-        Returns None if no command type is found.
+        Gets the last command type issued by a user.
+
+        Args:
+            user_id (str): Discord user ID.
+
+        Returns:
+            str or None: Last command type string.
         """
 
         return self.last_command_type.get(user_id, None)
     
     def get_cached_history_documents(self, channel_id):
         """
-        Retrieves the cached chat history documents for a given channel ID.
-        Returns a list of Document objects representing the cached history.
+        Converts cached chat history into LangChain Document objects with metadata.
+
+        Args:
+            channel_id (str): Discord channel ID.
+
+        Returns:
+            List[Document]: Cached documents to be stored in long-term memory.
         """
 
         if channel_id not in self.cached_chat_history:
@@ -238,8 +311,10 @@ class LocalMemory:
     
     def clear_cached_history(self, channel_id):
         """
-        Clears the cached chat history for a given channel ID.
-        This removes all cached messages but retains the total chat history.
+        Clears short-term memory (cached) for a specific channel.
+
+        Args:
+            channel_id (str): Discord channel ID.
         """
 
         if channel_id in self.cached_chat_history:
@@ -250,8 +325,10 @@ class LocalMemory:
 
     def clear_chat_history(self, channel_id):
         """
-        Clears the total chat history for a given channel ID.
-        This removes all messages from the total history and cached history.
+        Clears all memory (short and total) for a specific channel.
+
+        Args:
+            channel_id (str): Discord channel ID.
         """
 
         if channel_id in self.total_chat_history:
@@ -288,16 +365,28 @@ class LocalMemory:
 
     def get_user_query_session_history(self, channel_id):
         """
-        Retrieves the user query session history for a given channel ID.
-        Returns a list of Document objects representing the user queries in the session.
+        Returns the user's query messages (i.e., recent search intent).
+
+        Args:
+            channel_id (str): Discord channel ID.
+
+        Returns:
+            List[Document]: List of user's query-related messages.
         """
 
         return self.user_query_session_history.get(channel_id, [])
     
     def get_messages_by_time(self, channel_id, start_time, end_time=datetime.datetime.now().utcnow()):
         """
-        Retrieves messages from the chat history for a given channel ID within a specified time range.
-        Returns a list of tuples containing the user, content, and timestamp of each message.
+        Returns messages from a specific time window.
+
+        Args:
+            channel_id (str): Discord channel ID.
+            start_time (datetime): Start of time range.
+            end_time (datetime): End of time range (default: now).
+
+        Returns:
+            List[Tuple[str, str, datetime]]: Filtered messages.
         """
 
         if channel_id not in self.total_chat_history:
@@ -317,8 +406,13 @@ class LocalMemory:
     
     def get_chat_embeddings(self, channel_id):
         """
-        Retrieves the embeddings for the chat history of a given channel ID.
-        Returns a list of Document objects with embeddings.
+        Returns embedding vectors from chat history of a given channel.
+
+        Args:
+            channel_id (str): Discord channel ID.
+
+        Returns:
+            List[Tuple[str, str, List[float]]]: (doc_id, message text, embedding vector).
         """
 
         if channel_id not in self.total_chat_history:
@@ -333,8 +427,10 @@ class LocalMemory:
 
     def store_in_long_term_memory(self, channel_id):
         """
-        Stores the cached chat history into long-term memory (PostgreSQL vector store).
-        This is used to persist chat history for future retrieval.
+        Stores cached messages into long-term vector storage (PostgreSQL) and clears them.
+
+        Args:
+            channel_id (str): Discord channel ID.
         """
 
         if channel_id not in self.cached_chat_history:
