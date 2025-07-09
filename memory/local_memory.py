@@ -7,8 +7,6 @@ from langchain_community.vectorstores import PGVector
 import os
 from dotenv import load_dotenv
 
-from remote_memory import RemoteMemory
-
 load_dotenv()
 api_key = os.getenv("GOOGLE_API_KEY")
 
@@ -19,8 +17,6 @@ db_user = os.getenv("DB_USER")
 db_password = os.getenv("DB_PASSWORD")
 
 connection_string = f"postgresql+psycopg2://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
-
-remote_memory = RemoteMemory()
 
 class LocalMemory:
     """
@@ -306,7 +302,17 @@ class LocalMemory:
                 content = doc['text']
                 filtered_history.append((user, content, timestamp))
 
-        return filtered_history
+        formatted_history = []
+        for user, content, timestamp in filtered_history:
+            formatted_history.append({
+                'sender': user,
+                'content': content,
+                'timestamp': timestamp
+            })
+
+        formatted_history.sort(key=lambda x: x['timestamp'])
+
+        return formatted_history
     
     def get_chat_embeddings(self, channel_id):
         """
@@ -323,35 +329,23 @@ class LocalMemory:
             paired_data.append((doc_id, document['text'], document['vector']))
 
         return paired_data
-
-    def store_in_long_term_memory(self, channel_id):
+    
+    def get_oldest_message(self, channel_id):
         """
-        Stores the cached chat history into long-term memory (PostgreSQL vector store).
-        This is used to persist chat history for future retrieval.
+        Retrieves the oldest message from the chat history for a given channel ID.
+        Returns a tuple containing the user, content, and timestamp of the oldest message.
         """
 
-        if channel_id not in self.cached_chat_history:
-            print(f"No cached history found for channel {channel_id}. Nothing to store.")
-            return
+        if channel_id not in self.total_chat_history:
+            return None
         
-        documents = self.get_cached_history_documents(channel_id)
-
-        if documents:
-            remote_memory.add_documents(channel_id, documents)
-            self.clear_cached_history(channel_id)
-            print(f"Stored {len(documents)} documents from channel {channel_id} into long-term memory.")
-        else:
-            print(f"No documents to store for channel {channel_id}.")
-
-    def store_all_in_long_term_memory(self):
-        """
-        Stores all cached chat histories across all channels into long-term memory.
-        This is used to persist all chat history for future retrieval.
-        """
-
-        channel_ids = list(self.cached_chat_history.keys())
+        chat_history = self.total_chat_history[channel_id]
+        if not chat_history.store:
+            return None
         
-        for channel_id in channel_ids:
-            self.store_in_long_term_memory(channel_id)
-        
-        print("Stored all cached histories into long-term memory.")
+        oldest_doc = min(chat_history.store.values(), key=lambda doc: doc['metadata']['timestamp'])
+        user = oldest_doc['metadata']['user']
+        content = oldest_doc['text']
+        timestamp = oldest_doc['metadata']['timestamp']
+
+        return user, content, timestamp

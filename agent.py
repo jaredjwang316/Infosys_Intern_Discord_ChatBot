@@ -15,8 +15,7 @@ import concurrent.futures
 from functions.query import query_data
 from functions.summary import summarize_conversation, summarize_conversation_by_time
 from functions.search import search_conversation, search_conversation_quick
-from local_memory import LocalMemory
-from remote_memory import RemoteMemory
+from memory_storage import memory_storage
 
 # Ensure the logs directory exists
 os.makedirs("logs", exist_ok=True)
@@ -46,9 +45,6 @@ llm = ChatGoogleGenerativeAI(
     max_retries=2
 )
 
-local_memory = LocalMemory()
-remote_memory = RemoteMemory()
-
 @tool
 def query(user_id: str, user_query: str) -> list[str]:
     """
@@ -63,7 +59,7 @@ def query(user_id: str, user_query: str) -> list[str]:
     print("QUERYING")
     
     user_id = int(user_id)
-    return query_data(user_id, user_query, local_memory.get_user_query_session_history(user_id))
+    return query_data(user_id, user_query, memory_storage.local_memory.get_user_query_session_history(user_id))
 
 @tool
 def summarize(channel_id: str) -> str:
@@ -78,7 +74,7 @@ def summarize(channel_id: str) -> str:
     print("SUMMARIZING")
 
     channel_id = int(channel_id)
-    result = summarize_conversation(local_memory.get_chat_history(channel_id))
+    result = summarize_conversation(memory_storage.local_memory.get_chat_history(channel_id))
 
     return result
 
@@ -99,7 +95,7 @@ def summarize_by_time(channel_id: str, rollback_time: float, time_unit: str) -> 
     channel_id = int(channel_id)
     # rollback_time = int(rollback_time)
 
-    local_memory.store_all_in_long_term_memory()
+    memory_storage.store_all_in_long_term_memory()
 
     now = datetime.datetime.now()
     delta_args = {f"{time_unit}": rollback_time}
@@ -124,10 +120,10 @@ def search(channel_id: str, query: str) -> str:
 
     channel_id = int(channel_id)
 
-    quick_result = search_conversation_quick(local_memory.get_vectorstore(channel_id), query)
+    quick_result = search_conversation_quick(memory_storage.get_local_vectorstore(channel_id), query)
     
     with concurrent.futures.ThreadPoolExecutor() as executor:
-        future = executor.submit(search_conversation, local_memory, remote_memory, channel_id, query, quick_result)
+        future = executor.submit(search_conversation, channel_id, query, quick_result)
 
         total_result = None
         try:
@@ -137,7 +133,7 @@ def search(channel_id: str, query: str) -> str:
         except Exception as e:
             print(f"Error during search operation: {e}")
 
-    local_memory.clear_cached_history(channel_id)
+        memory_storage.local_memory.clear_cached_history(channel_id)
 
     return total_result if total_result else quick_result
 
@@ -248,7 +244,7 @@ def conductor(state: State) -> dict:
         state["messages"] = []
     last = state["messages"][-1]
     if hasattr(last, "content") and not hasattr(last, "tool_call_id"):
-        local_memory.add_message(
+        memory_storage.add_message(
             state["current_channel"],
             state["current_user"],
             last.content
@@ -361,47 +357,47 @@ def router(state: State) -> str:
     else:
         return "generate_response"
 
-def generate_response(state: State) -> dict:
-    """
-    Generate a response based on the current state of the conversation.
-    """
-    user_query = ""
-    tool_results = ""
-    conversation_history = ""
+# def generate_response(state: State) -> dict:
+#     """
+#     Generate a response based on the current state of the conversation.
+#     """
+#     user_query = ""
+#     tool_results = ""
+#     conversation_history = ""
     
-    for msg in state["messages"]:
-        if hasattr(msg, '__class__'):
-            if msg.__class__.__name__ == 'HumanMessage' and hasattr(msg, 'content'):
-                user_query = msg.content
-                conversation_history += f"User: {msg.content}\n"
-            elif msg.__class__.__name__ == 'AIMessage' and hasattr(msg, 'content'):
-                if msg.content and "Tool Calls:" not in msg.content:
-                    conversation_history += f"Assistant: {msg.content}\n"
-            elif msg.__class__.__name__ == 'ToolMessage' and hasattr(msg, 'content'):
-                tool_results += f"{msg.content}\n"
+#     for msg in state["messages"]:
+#         if hasattr(msg, '__class__'):
+#             if msg.__class__.__name__ == 'HumanMessage' and hasattr(msg, 'content'):
+#                 user_query = msg.content
+#                 conversation_history += f"User: {msg.content}\n"
+#             elif msg.__class__.__name__ == 'AIMessage' and hasattr(msg, 'content'):
+#                 if msg.content and "Tool Calls:" not in msg.content:
+#                     conversation_history += f"Assistant: {msg.content}\n"
+#             elif msg.__class__.__name__ == 'ToolMessage' and hasattr(msg, 'content'):
+#                 tool_results += f"{msg.content}\n"
 
-    # Create a clean, simple prompt
-    final_prompt = f"""
-    User's original question: {user_query}
+#     # Create a clean, simple prompt
+#     final_prompt = f"""
+#     User's original question: {user_query}
     
-    Tool results: {tool_results}
+#     Tool results: {tool_results}
     
-    Previous conversation:
-    {conversation_history}
+#     Previous conversation:
+#     {conversation_history}
     
-    Please provide a clear, helpful final response to the user's question using the tool results:
-    """
+#     Please provide a clear, helpful final response to the user's question using the tool results:
+#     """
 
-    try:
-        response = llm.invoke([HumanMessage(content=final_prompt)])
-        local_memory.add_message(state["current_channel"], 'Bot', response.content.strip())
-        return {"messages": [response]}
-    except Exception as e:
-        print(f"❌ ERROR: {e}")
-        fallback_response = AIMessage(
-            content="I apologize, but I'm experiencing technical difficulties. Please try your request again."
-        )
-        return {"messages": [fallback_response]}
+#     try:
+#         response = llm.invoke([HumanMessage(content=final_prompt)])
+#         memory_storage.add_message(state["current_channel"], 'Bot', response.content.strip())
+#         return {"messages": [response]}
+#     except Exception as e:
+#         print(f"❌ ERROR: {e}")
+#         fallback_response = AIMessage(
+#             content="I apologize, but I'm experiencing technical difficulties. Please try your request again."
+#         )
+#         return {"messages": [fallback_response]}
 
 tools = ToolNode(
     name="tools",
@@ -417,7 +413,7 @@ builder = StateGraph(State)
 
 builder.add_node("conductor", conductor)
 builder.add_node("tools", tools)
-builder.add_node("generate_response", generate_response)
+# builder.add_node("generate_response", generate_response)
 
 builder.set_entry_point("conductor")
 # builder.add_conditional_edges(
@@ -437,9 +433,9 @@ builder.add_conditional_edges(
     }
 )
 builder.add_edge("tools", "conductor")
-builder.add_edge("generate_response", END)
+# builder.add_edge("generate_response", END)
 
-chat_memory, thread_id = local_memory.get_chat_memory()
+chat_memory, thread_id = memory_storage.local_memory.get_chat_memory()
 
 agent_graph = builder.compile(checkpointer=chat_memory)
 

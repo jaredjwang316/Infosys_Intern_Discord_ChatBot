@@ -140,8 +140,7 @@ class RemoteMemory:
         grouped_docs = []
         
         current_docs = {}
-        for i in range(len(documents)):
-            doc = documents[i]
+        for doc in documents:
             role = doc.metadata.get('role', 'Unknown').lower()
             timestamp = doc.metadata.get('timestamp', datetime.datetime.now(datetime.timezone.utc))
             content = doc.page_content
@@ -294,7 +293,7 @@ class RemoteMemory:
         table_name = f"ch_{channel_id}"
         search_query = f"""
         SET LOCAL hnsw.ef_search = {self.ef_search.get(channel_id, 64)};
-        SELECT sender, timestamp, content, embedding
+        SELECT sender, timestamp, content, bot_message, embedding
         FROM {table_name}
         ORDER BY embedding <=> %s::vector
         LIMIT %s;
@@ -305,7 +304,7 @@ class RemoteMemory:
 
         filtered_results = []
         for result in results:
-            sender, timestamp, content, embedding = result
+            sender, timestamp, content, bot_message, embedding = result
             if isinstance(embedding, str):
                 embedding_str = embedding.strip('[]')
                 embedding_array = np.array([float(x.strip()) for x in embedding_str.split(',')])
@@ -322,6 +321,7 @@ class RemoteMemory:
                     "sender": sender,
                     "timestamp": timestamp,
                     "content": content,
+                    "bot_message": bot_message,
                     "similarity": similarity
                 })
 
@@ -343,7 +343,7 @@ class RemoteMemory:
         table_name = f"ch_{channel_id}"
         search_query = f"""
         SET LOCAL hnsw.ef_search = {self.ef_search.get(channel_id, 64)};
-        SELECT sender, timestamp, content
+        SELECT sender, timestamp, content, bot_message
         FROM {table_name}
         WHERE timestamp >= %s AND timestamp <= %s
         ORDER BY timestamp ASC;
@@ -356,11 +356,12 @@ class RemoteMemory:
             return []
 
         formatted_results = []
-        for sender, timestamp, content in results:
+        for sender, timestamp, content, bot_message in results:
             formatted_results.append({
                 "sender": sender,
                 "timestamp": timestamp,
-                "content": content
+                "content": content,
+                "bot_message": bot_message
             })
 
         return formatted_results

@@ -2,6 +2,7 @@ import os
 from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
 from langchain_community.vectorstores import PGVector
+from memory_storage import memory_storage
 
 load_dotenv()
 api_key = os.getenv("GOOGLE_API_KEY")
@@ -64,15 +65,15 @@ def search_conversation_quick(short_vectorstore, search_query):
             fallback_response += f"• {role} ({timestamp}): {doc.page_content}\n"
         return fallback_response
 
-def search_conversation(local_memory, remote_memory, channel_id, search_query, quick_result):
+def search_conversation(channel_id, search_query, quick_result):
     print("Searching using both short-term and long-term memory...")
 
-    local_memory.store_in_long_term_memory(channel_id)
+    memory_storage.store_in_long_term_memory(channel_id)
     
     print("Finished adding cached chat history to long-term memory.")
 
     print("🔍 Searching long-term memory...")
-    long_results = remote_memory.search_documents(channel_id, search_query, 5, 0.7)
+    long_results = memory_storage.search_long_term_memory(channel_id, search_query, 5, 0.7)
     
     # Remove duplicates based on content
     unique_results = []
