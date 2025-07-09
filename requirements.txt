@@ -1,5 +1,8 @@
+asyncio
+sys
 python-dotenv
 discord
+logging
 psycopg2-binary
 langchain
 langchain-community
