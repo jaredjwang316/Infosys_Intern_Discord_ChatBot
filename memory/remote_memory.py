@@ -118,11 +118,20 @@ class RemoteMemory:
             """
             self.cur.execute(create_table_query)
 
+            # # IVFFLAT
+            # index_query = f"""
+            # CREATE INDEX ON {channel_id}
+            # USING ivfflat (embedding vector_cosine_ops)
+            # WITH (lists = 10)
+            # """
+
+            # HNSW
             index_query = f"""
             CREATE INDEX ON {table_name}
             USING hnsw (embedding vector_l2_ops)
             WITH (m = 16, ef_construction = 64);
             """
+            self.cur.execute("SET hnsw.ef_search = 40;")
 
             self.cur.execute(index_query)
 
@@ -383,4 +392,6 @@ class RemoteMemory:
         USING hnsw (embedding vector_l2_ops)
         WITH (m = {m}, ef_search = {ef_search});
         """
+        self.cur.execute("SET hnsw.ef_search = 40;")
+
         self.cur.execute(index_query)
