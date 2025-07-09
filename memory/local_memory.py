@@ -18,6 +18,7 @@ db_password = os.getenv("DB_PASSWORD")
 
 connection_string = f"postgresql+psycopg2://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
 
+# TODO: Memorysaver is not working correctly, something is happening with persistent memory again
 class LocalMemory:
     """
     LocalMemory is a class that manages conversation history and embeddings for a chat application.
