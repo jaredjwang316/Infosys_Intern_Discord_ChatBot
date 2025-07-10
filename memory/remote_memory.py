@@ -1,3 +1,20 @@
+"""
+remote_memory.py
+
+This module defines the RemoteMemory class, which interfaces with a PostgreSQL database 
+extended with the pgvector extension. It is responsible for storing, indexing, and retrieving 
+chat message embeddings for long-term memory management. It uses Google's text embedding 
+model to generate vector representations of user messages, which are then stored in 
+per-channel tables. The system supports semantic similarity search and time-based retrieval 
+via SQL queries and native vector search using the HNSW index type.
+
+Main Responsibilities:
+- Maintain PostgreSQL connection and table structure for each chat channel.
+- Embed user messages using Google Generative AI.
+- Store and index messages and embeddings into channel-specific tables.
+- Perform vector similarity searches and time-range queries on stored messages.
+- Support reindexing and dynamic tuning of HNSW index parameters.
+"""
 import os
 from dotenv import load_dotenv
 import psycopg2
