@@ -86,7 +86,8 @@ class Agent:
         self.build_graph()
 
     @tool
-    def query(self, user_id: str, user_query: str) -> list[str]:
+    @staticmethod
+    def query(user_id: str, user_query: str) -> list[str]:
         """
         Query the SQL database with the user's query.
 
@@ -102,7 +103,8 @@ class Agent:
         return query_data(user_id, user_query, memory_storage.local_memory.get_user_query_session_history(user_id))
 
     @tool
-    def summarize(self, channel_id: str) -> str:
+    @staticmethod
+    def summarize(channel_id: str) -> str:
         """
         Summarize the conversation history for a given channel.
 
@@ -119,7 +121,8 @@ class Agent:
         return result
 
     @tool
-    def summarize_by_time(self, channel_id: str, rollback_time: float, time_unit: str) -> str:
+    @staticmethod
+    def summarize_by_time(channel_id: str, rollback_time: float, time_unit: str) -> str:
         """
         Summarize the conversation history for a given channel within a time range.
 
@@ -146,7 +149,8 @@ class Agent:
         return result
 
     @tool
-    def search(self, channel_id: str, query: str) -> str:
+    @staticmethod
+    def search(channel_id: str, query: str) -> str:
         """
         Search the conversation history for a given channel.
 
@@ -263,6 +267,7 @@ class Agent:
                 raise ValueError(f"Unknown tool: {name}")
 
             # Run the tool
+            logging.info(f'args: \n {args}')
             result = tool_map[name](args)
 
             # Log the tool usage
