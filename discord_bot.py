@@ -233,18 +233,25 @@ async def on_message(message):
         response = agent_graph.invoke({
                 "current_channel": channel_id,
                 "current_user": user_id,
-                "messages": [messages]
+                "messages": [messages],
         }, config)
-        
+
         try:
             bot_reply = response["messages"][-1].content.strip()
             memory_storage.add_message(channel_id, "Bot", bot_reply)
             replies = split_response(bot_reply)
             for reply in replies:
                 await message.channel.send(reply)
+
+            # ADD THIS: Handle chart image (BytesIO) if present
+            if "output_image" in response:
+                image_buffer = response["output_image"]
+                image_buffer.seek(0)
+                await message.channel.send(file=discord.File(fp=image_buffer, filename="chart.png"))
         except Exception as e:
             await message.channel.send(f"❌ Error: {e}")
             return
+
     else:
         # Store non-command messages in local memory for future context
         memory_storage.add_message(channel_id, user_name, user_message)

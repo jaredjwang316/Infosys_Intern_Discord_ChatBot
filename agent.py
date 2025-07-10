@@ -60,7 +60,7 @@ llm = ChatGoogleGenerativeAI(
 )
 
 @tool
-def query(user_id: str, user_query: str) -> list[str]:
+def query(user_id: str, user_query: str) -> dict:
     """
     Query the SQL database with the user's query.
 
@@ -68,12 +68,36 @@ def query(user_id: str, user_query: str) -> list[str]:
         user_query (str): The user's query to be processed.
         user_id (str): The ID of the user making the query.
     Returns:
-        list[str]: A list of messages containing the query result.
+        dict: {
+            "messages": List[str],
+            "files": List[str] (paths to images or other visualizations)
+        }
     """
     print("QUERYING")
     
     user_id = int(user_id)
-    return query_data(user_id, user_query, memory_storage.local_memory.get_user_query_session_history(user_id))
+    result = query_data(user_id, user_query, memory_storage.local_memory.get_user_query_session_history(user_id))
+
+    if isinstance(result, list) and any(isinstance(r, dict) and r.get("type") == "image" for r in result):
+        output_files = []
+        for item in result:
+            image_data = item["file"]  # this is BytesIO
+            filename = item["filename"]
+            filepath = f"./temp/{filename}"
+            os.makedirs("./temp", exist_ok=True)
+            with open(filepath, "wb") as f:
+                f.write(image_data.read())
+            output_files.append(filepath)
+        
+        return {
+            "messages": ["📊 Chart generated."],
+            "output_files": output_files
+        }
+
+    return {
+        "messages": result,
+        "output_files": []
+    }
 
 @tool
 def summarize(channel_id: str) -> str:
@@ -172,6 +196,7 @@ class State(TypedDict):
     messages: Annotated[list, add_messages]
     current_user: str
     current_channel: str
+    output_files: list[str]
 
 def conductor(state: State) -> dict:
     """
@@ -277,8 +302,12 @@ def conductor(state: State) -> dict:
             """
         )
 
-        # Append tool output as AI message
-        messages.append(AIMessage(content=f"[{name} output]:\n{result}"))
+        if isinstance(result, dict) and "messages" in result:
+            messages.extend([AIMessage(content=f"[{name} output]:\n{msg}") for msg in result["messages"]])
+            if "files" in result:
+                state.setdefault("output_files", []).extend(result["files"])
+        else:
+            messages.append(AIMessage(content=f"[{name} output]:\n{result}"))
 
     logging.info("🧠 Invoking LLM to synthesize final response from tool outputs...")
     # 4) Final synthesis—only System/Human/AI messages here
@@ -291,7 +320,9 @@ def conductor(state: State) -> dict:
     )
     logging.info("✅ Final response generated successfully.")
 
-    return {"messages": [final]}
+    return {"messages": [final],
+            "output_files": state.get("output_files", [])
+    }
 
 def router(state: State) -> str:
     """
