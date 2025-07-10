@@ -107,20 +107,132 @@ def create_gcal_event(event_dict):
     created_event = service.events().insert(calendarId='primary', body=event).execute()
     return created_event.get('htmlLink')
 
+def edit_event(event_details, event_list):
 
-# def create_gcal_event(event_dict):
-#     SERVICE_ACCOUNT_FILE = 'credentials.json'
+    prompt = f"""
+    You are a helpful assistant that updates calendar events based on natural language instructions.
 
-#     credentials = service_account.Credentials.from_service_account_file(
-#         SERVICE_ACCOUNT_FILE, scopes=SCOPES)
+    Given:
+    - A message requesting a change
+    - A list of existing events (formatted as key-value pairs)
+
+    Your task:
+    1. Select the event that most closely matches the request. If the message is vague, choose the most recent event in the list.
+    2. Identify which details need to change based on the message (e.g., title, start time, end time).
+    3. Return a new version of the selected key-value pair with only those changes applied.
+    4. Use ISO 8601 format for the values mapped to 'start_dt' and 'end_dt'.
+    4. Keep the formatting and datatypes for the values mapped to 'title' the same as the original dictionary.
+
+    ### EXISTING EVENTS ###
+    {event_list}
+
+    ### MESSAGE ###
+    {event_details}
+
+    Return ONLY the modified key-value pair, and nothing else.
+    MAKE SURE THE LENGTH OF THE MEETING (end time - start time) STAYS THE SAME UNLESS EXPLICITLY CHANGED.
+    Do not include any code blocks, extra formatting, or explanation.
+    """
+    try:
+        print("Calling Gemini model...")
+        response = model.invoke([HumanMessage(content=prompt)])
+        print("Gemini raw output:", response.content)
+
+        raw = response.content.strip()
+        if raw.startswith("```"):
+            raw = raw.strip("`").strip()
+        
+        parsed = ast.literal_eval(raw)
+
+        local_tz = get_localzone()
+
+        parsed['start_dt'] = datetime.datetime.fromisoformat(parsed['start_dt'])
+        parsed['end_dt'] = datetime.datetime.fromisoformat(parsed['end_dt'])
+
+        parsed['start_dt'] = parsed['start_dt'].astimezone(local_tz)
+        parsed['end_dt'] = parsed['end_dt'].astimezone(local_tz)
+
+        return parsed
+
+    except Exception as e:
+        print(f"Error generating event details: {e}")
+
+def delete_event(event_details, event_list):
+
+    prompt = f"""
+    You are a helpful assistant that selects calendar events based on natural language instructions.
+
+    Given:
+    - A message requesting the deletion of an event
+    - A list of existing events (formatted as key-value pairs)
+
+    Your task:
+    1. Select the event that most closely matches the request. If the message is vague, choose the most recent event in the list.
+    2. Return the dictionary of the selected event with the following changes:
+        - Convert the values mapped to 'start_dt' and 'end_dt' to ISO 8601 format.
+        - Keep the formatting and datatypes for the values mapped to 'title' the same as the original dictionary.
+
+    ### EXISTING EVENTS ###
+    {event_list}
+
+    ### MESSAGE ###
+    {event_details}
+
+    Do not include any code blocks, extra formatting, or explanation.
+    """
+    try:
+        print("Calling Gemini model...")
+        response = model.invoke([HumanMessage(content=prompt)])
+        print("Gemini raw output:", response.content)
+
+        raw = response.content.strip()
+        if raw.startswith("```"):
+            raw = raw.strip("`").strip()
+        
+        parsed = ast.literal_eval(raw)
+
+        local_tz = get_localzone()
+
+        parsed['start_dt'] = datetime.datetime.fromisoformat(parsed['start_dt'])
+        parsed['end_dt'] = datetime.datetime.fromisoformat(parsed['end_dt'])
+
+        parsed['start_dt'] = parsed['start_dt'].astimezone(local_tz)
+        parsed['end_dt'] = parsed['end_dt'].astimezone(local_tz)
+
+        return parsed
+
+    except Exception as e:
+        print(f"Error generating event details: {e}")
+
+def cal_handler(event_details):
+    prompt = f"""
+    You are a helpful assistant that evaluates user messages in natural language.
+    Your job is to determine whether the user wants to CREATE a new event or to EDIT an existing one.
+
+    Return your answer as the following:
+
+    - If the user wants to CREATE an event, return 'CREATE'
+    - If the user wants to EDIT an existing event, return 'EDIT'
+    - If the user wants to DELETE an existing event, return 'DELETE'
+
+    Return ONLY 'True' or 'False' in the given formatting (with the given capitalization).
+    Do not include quotes or punctuation of any kind. Do not include any extra formatting or explanation.
+
+    ### USER MESSAGE ###
+    {event_details}
+    """
+
+    try:
+        response = model.invoke([HumanMessage(content=prompt)])
+        decision = response.content.strip().lower()
+        return decision
+
+    except Exception as e:
+        print(f"Error in confirming calendar tool action: {e}")
     
-#     service = build('calendar', 'v3', credentials=credentials)
-    
-#     event = {
-#         'name': event_dict['title'],
-#         'start': {'dateTime': event_dict['start_dt'].isoformat()},
-#         'end': {'dateTime': event_dict['end_dt'].isoformat()}
-#     }
 
-#     created_event = service.events().insert(calendarId='primary', body=event).execute()
-#     return created_event.get('htmlLink')
+
+
+
+
+
