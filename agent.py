@@ -12,6 +12,13 @@ Key Features:
 - Maintains stateful interaction using LocalMemory and conversation context.
 """
 
+# TODO: Add logging to the TASK statements by conductor
+# TODO: Fix the infinite loops from asking to DELETE from database or do other things that
+#       the bot isn't allowed to do. Idea could be just immediately return an error message from query tool and tell the bot to not do that.
+# TODO: Add in gcal integration to allow the bot to create events in the user's calendar
+# TODO: Add in a max queries and timeout system to prevent the bot trying indefinitely
+# TODO: Add in a way to switch llms or to try again on queries that fail due to rate limits or other issues
+
 import os
 from typing import Annotated
 from typing_extensions import TypedDict
