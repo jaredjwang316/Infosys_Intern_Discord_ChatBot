@@ -56,6 +56,7 @@ CREATE EXTENSION IF NOT EXISTS vector;
 
 CREATE TABLE IF NOT EXISTS chat_embeddings (
     id SERIAL PRIMARY KEY,
+    channel_id TEXT,                   -- ID or name of the channel/conversation
     role TEXT,                         -- user or bot
     content TEXT,                      -- the actual message text
     embedding VECTOR(768)             -- or whatever embedding dim Gemini uses

@@ -1,6 +1,22 @@
-import matplotlib.pyplot as plt
-import io
-import base64
+"""
+query.py
+
+Purpose:
+--------
+This module handles natural language query interpretation, SQL query generation, validation, execution, 
+and optional visualization for a PostgreSQL database used in an AI-powered chatbot system.
+
+It bridges the gap between plain English user input and executable, secure SQL queries by leveraging 
+Google's Gemini model through LangChain, with database schema awareness and retry logic.
+
+Key Responsibilities:
+---------------------
+- Interprets natural language user queries and generates corresponding SQL queries using Gemini.
+- Validates SQL queries against the loaded database schema to prevent unauthorized operations.
+- Executes SQL queries against a live PostgreSQL database and formats the results for Discord-compatible output.
+- Generates charts (bar, pie, or line) when the user request implies visualization.
+- Handles retries with context if queries return no results or is invalid.
+"""
 import os
 import re
 from dotenv import load_dotenv
@@ -13,11 +29,32 @@ from psycopg2 import OperationalError
 
 # Determine if a query asks for visualization
 def is_visualization_query(user_query):
+    """
+    Determine if the user's query requests a visualization/chart.
+
+    Args:
+        user_query (str): The raw user query in natural language.
+
+    Returns:
+        bool: True if the query contains visualization-related keywords; False otherwise.
+
+    Keywords checked include "visualize", "chart", "plot", "bar chart", "pie chart", "line chart", "trend".
+    """
     keywords = ["visualize", "chart", "plot", "bar chart", "pie chart", "line chart", "trend"]
     return any(k in user_query.lower() for k in keywords)
 
 # Extract preferred chart type
 def extract_chart_type(user_query):
+    """
+    Extract the preferred chart type from the user's query.
+
+    Args:
+        user_query (str): The raw user query.
+
+    Returns:
+        str: One of "pie", "line", or "bar" representing the chart type.
+             Defaults to "bar" if no specific type is found.
+    """
     if "pie" in user_query.lower():
         return "pie"
     elif "line" in user_query.lower() or "trend" in user_query.lower():
@@ -27,7 +64,69 @@ def extract_chart_type(user_query):
     else:
         return "bar"  # default
 
-def generate_chart_file(rows, columns, chart_type="bar"):
+def generate_chart_title(user_query, columns):
+    """
+    Generate a human-readable and descriptive chart title using the user query and database columns.
+
+    Args:
+        user_query (str): The user's original query requesting the chart.
+        columns (List[str]): A list of two column names [X-axis, Y-axis] from the query result.
+
+    Returns:
+        str: A natural language chart title suitable for dashboards or reports.
+
+    Notes:
+        - Avoids raw column names and technical jargon.
+        - Ensures the title is understandable by non-technical users.
+        - Uses the Gemini model to generate the title based on instructions.
+    """
+    prompt = f"""
+    Generate a clear, human-readable chart title based on the user's request and the two database columns 
+    used for the chart.
+
+    ### INSTRUCTIONS ###
+    - Do NOT use raw column names like 'count', 'id', 'role', 'hire_month' as-is.
+    - Replace technical terms and abbreviations with descriptive, natural phrases.
+    - Avoid generic phrases like "count over role", "total over type", or "value by category".
+    - DO NOT use words like "count", "total", "id", "data", or "chart" in the title unless absolutely necessary.
+    - DO NOT repeat column names exactly as they appear.
+    - The title must make sense to someone with no knowledge of SQL or databases.
+    - Make it sound like a real chart you'd see in a report or dashboard.
+    - Use proper capitalization and spacing.
+
+
+    ### USER QUERY ###
+    {user_query}
+
+    ### COLUMNS ###
+    X-axis: {columns[0]}
+    Y-axis: {columns[1]}
+
+    ### TITLE ###
+    Only return the generated chart title as a single line of text.
+    """
+    message = [HumanMessage(content=prompt)]
+    title = model.invoke(message).content.strip()
+    return title
+
+def generate_chart_file(rows, columns, chart_type="bar", user_query=None):
+    """
+    Generate a chart image (PNG) from query results using matplotlib.
+
+    Args:
+        rows (List[Tuple]): Query result rows with at least two columns.
+        columns (List[str]): Corresponding column names for X and Y axes.
+        chart_type (str): The type of chart to generate ("bar", "line", or "pie").
+        user_query (str, optional): The original user query for context (used to generate the chart title).
+
+    Returns:
+        io.BytesIO or None: A bytes buffer containing the PNG image data of the chart, or None if generation fails.
+
+    Behavior:
+        - Supports bar, line, and pie charts.
+        - Automatically formats axis labels and titles.
+        - Returns None if input data is insufficient or invalid.
+    """
     import matplotlib.pyplot as plt
     import io
 
@@ -40,8 +139,6 @@ def generate_chart_file(rows, columns, chart_type="bar"):
     except (ValueError, IndexError):
         return None
     
-    # Dynamically adjust figure width based on number of x-values
-    fig_width = max(10, len(x_vals) * 0.4)  # Scale up for large x_vals
     fig, ax = plt.subplots(figsize=(10, 6))
     if chart_type == "bar":
         ax.bar(x_vals, y_vals)
@@ -52,6 +149,8 @@ def generate_chart_file(rows, columns, chart_type="bar"):
     else:
         return None
 
+    title = generate_chart_title(user_query, columns)
+    ax.set_title(title)
     ax.set_title(f"{columns[1]} over {columns[0]}")
     if chart_type != "pie":
         ax.set_xlabel(columns[0])
@@ -130,6 +229,21 @@ total_chat_history = {}
 tips = str()
 
 def strip_query(query):
+    """
+    Clean SQL query text by removing common formatting artifacts.
+
+    Args:
+        query (str): The raw SQL query string possibly containing markdown code fences or prefixes.
+
+    Returns:
+        str: The cleaned SQL query suitable for execution.
+    
+    Actions performed:
+        - Strips leading/trailing whitespace.
+        - Removes triple backtick code fences (```...```) if present.
+        - Removes single backticks (`).
+        - Removes leading 'sql' or 'SQL' tokens.
+    """
     # Remove common code fences and leading/trailing whitespace, but not quotes inside
     query = query.strip()
     # Remove markdown code block fences if present (```sql or ``` etc.)
@@ -142,7 +256,22 @@ def strip_query(query):
     return query
 
 def generate_query(sql_query):
-    # change prompt to not be a hypothetical if correct. Validating will be the next step.
+    """
+    Generate a validated SQL SELECT query from a natural language request using Gemini.
+
+    Args:
+        sql_query (str): The natural language user query or request.
+
+    Returns:
+        str or None: A syntactically valid SQL SELECT query that matches the user's intent,
+                     or None if a valid query cannot be generated after retries.
+
+    Process:
+        - Uses a detailed prompt including the database schema to guide Gemini in SQL generation.
+        - Validates the query syntax and allowed table names.
+        - Retries up to 3 times if the query is invalid.
+        - Ensures the query only selects data (no modification commands).
+    """
 
     db_schema = SCHEMA_TEXT
     global tips
@@ -217,6 +346,23 @@ def generate_query(sql_query):
     return response
 
 def retry_query(sql_query, information=None):
+    """
+    Retry and refine a SQL query if it returns no results, leveraging additional information.
+
+    Args:
+        sql_query (str): The last generated SQL query that returned empty results.
+        information (str, optional): Additional context or feedback from previous attempts.
+
+    Returns:
+        List[str] or None: Formatted query result strings after refinement, or None if no data found.
+
+    Behavior:
+        - Invokes Gemini with instructions to generate a better query to retrieve relevant data.
+        - Validates SQL syntax for each generated query.
+        - Executes queries against the database.
+        - Retries up to 3 times before giving up.
+        - Returns formatted text tables or None if no results.
+    """
     global tips
     if tips:
         query_tips = f"\n### TIPS ###\n{tips}\n"
@@ -381,8 +527,8 @@ def retry_query(sql_query, information=None):
             print(response)
 
         
-        cur.execute(response)
-        rows = cur.fetchall()
+        cur.execute(response)   #executes the query against the live database.
+        rows = cur.fetchall()   #retrieves all the rows returned by the executed query.
         count += 1
 
     if not rows:
@@ -396,6 +542,21 @@ def retry_query(sql_query, information=None):
     return tables
 
 def is_valid_sql(query):
+    """
+    Check if a SQL query is syntactically valid and safe to execute.
+
+    Args:
+        query (str): The SQL query string to validate.
+
+    Returns:
+        bool: True if the query is a safe SELECT statement using only allowed tables; False otherwise.
+
+    Validation Rules:
+        - Must start with SELECT.
+        - Must contain FROM clause.
+        - Must not contain blacklisted keywords like INSERT, UPDATE, DELETE, DROP, ALTER, CREATE.
+        - Table names in FROM and JOIN clauses must be in the allowed schema.
+    """
     if not query or not isinstance(query, str):
         return False
 
@@ -427,6 +588,18 @@ def is_valid_sql(query):
     return True
 
 def format_table(table):
+    """
+    Split a large textual table into chunks to avoid message length limits.
+
+    Args:
+        table (str): A string representing tabular data (headers and rows separated by newlines).
+
+    Returns:
+        List[str]: A list of smaller string chunks each under the maximum allowed length (e.g., 2000 chars).
+
+    Purpose:
+        - Facilitates sending large results over Discord or similar platforms without truncation.
+    """
     max_length = 2000
     lines = table.split("\n")
     formatted_lines = []
@@ -446,6 +619,28 @@ def format_table(table):
     return formatted_lines
 
 def query_data(user_id, user_query, session_history=None):
+    """
+    Main entry point to process a user's natural language query into data response(s).
+
+    Args:
+        user_id (str): Unique identifier for the user (used for session memory).
+        user_query (str): The natural language query string from the user.
+        session_history (List[str], optional): Prior queries in this session to provide conversational context.
+
+    Returns:
+        List[str] or List[Dict]: A list of formatted text responses, or
+                                a list containing an image dict (type, file, filename) for charts.
+
+    Workflow:
+        - Incorporates session context into the prompt.
+        - Generates and validates SQL query using Gemini.
+        - Executes the query on PostgreSQL.
+        - If no results, retries with refined queries.
+        - Detects if the query requests visualization and generates charts accordingly.
+        - Formats and returns query results as markdown code blocks or images.
+        - Stores last user and SQL queries for short-term memory.
+    """
+
     # Create a contextual prompt using the session history (previous queries in the session)
     contextualized_query = user_query
 
@@ -491,16 +686,18 @@ def query_data(user_id, user_query, session_history=None):
         }
 
         cols = [desc[0] for desc in cur.description]
-        lines = [" | ".join(cols)]
-        lines += [" | ".join(map(str, row)) for row in rows]
-        table = "\n".join(lines)
 
         if is_visualization_query(user_query):
             chart_type = extract_chart_type(user_query)
-            chart_file = generate_chart_file(rows, cols, chart_type)
+            chart_file = generate_chart_file(rows, cols, chart_type, user_query=user_query)
             if chart_file:
                 return [{"type": "image", "file": chart_file, "filename": "chart.png"}]
+
+        lines = [" | ".join(cols)]
+        lines += [" | ".join(map(str, row)) for row in rows]
+        table = "\n".join(lines)
         tables = format_table(table)
+
     texts = list()
     for table in tables:
         texts.append("```" + table + "```")
