@@ -31,7 +31,6 @@ Key Technologies:
 """
 from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
 from langchain_core.vectorstores import InMemoryVectorStore
-from langgraph.checkpoint.memory import MemorySaver
 from langchain.schema import Document
 import datetime
 from langchain_community.vectorstores import PGVector
@@ -64,11 +63,8 @@ class LocalMemory:
         self.total_chat_history = {}
         self.cached_chat_history = {}
         self.chat_memory_configs = {}
-        self.chat_memories = MemorySaver()
         self.user_query_session_history = {}
         self.last_command_type = {}
-
-        self.last_thread_id = 0
 
         self.model = ChatGoogleGenerativeAI(
             model="gemini",
@@ -225,17 +221,6 @@ class LocalMemory:
             formatted_history.append((user, content, timestamp))
 
         return formatted_history
-    
-    def get_chat_memory(self):
-        """
-        Returns LangGraph-compatible thread memory (MemorySaver) and configuration.
-
-        Returns:
-            Tuple[MemorySaver, Dict]: MemorySaver instance and config with unique thread ID.
-        """
-
-        self.last_thread_id += 1
-        return self.chat_memories, {"configurable": {"thread_id": str(self.last_thread_id)}}
 
     def get_vectorstore(self, channel_id):
         """

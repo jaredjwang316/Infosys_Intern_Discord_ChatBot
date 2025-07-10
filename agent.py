@@ -58,6 +58,7 @@ class State(TypedDict):
     messages: Annotated[list, add_messages]
     current_user: str
     current_channel: str
+    task_description: str
 
 class Agent:
     """
@@ -85,8 +86,22 @@ class Agent:
         self.graph = None
         self.build_graph()
 
+    def invoke(self, state: State, config: dict) -> dict:
+        """
+        Invoke the agent with the current state.
+
+        Args:
+            state (State): The current state of the conversation.
+            config (dict): Configuration options for the invocation.
+        Returns:
+            dict: A dictionary containing the response messages from the agent.
+        """
+        if self.graph is None:
+            self.build_graph()
+
+        return self.graph.invoke(state, config)
+
     @tool
-    @staticmethod
     def query(user_id: str, user_query: str) -> list[str]:
         """
         Query the SQL database with the user's query.
@@ -103,7 +118,6 @@ class Agent:
         return query_data(user_id, user_query, memory_storage.local_memory.get_user_query_session_history(user_id))
 
     @tool
-    @staticmethod
     def summarize(channel_id: str) -> str:
         """
         Summarize the conversation history for a given channel.
@@ -121,7 +135,6 @@ class Agent:
         return result
 
     @tool
-    @staticmethod
     def summarize_by_time(channel_id: str, rollback_time: float, time_unit: str) -> str:
         """
         Summarize the conversation history for a given channel within a time range.
@@ -149,7 +162,6 @@ class Agent:
         return result
 
     @tool
-    @staticmethod
     def search(channel_id: str, query: str) -> str:
         """
         Search the conversation history for a given channel.
@@ -186,12 +198,20 @@ class Agent:
         if not state["messages"]:
             state["messages"] = []
         last = state["messages"][-1]
+
         if hasattr(last, "content") and not hasattr(last, "tool_call_id"):
             memory_storage.add_message(
                 state["current_channel"],
                 state["current_user"],
                 last.content
             )
+
+        previous_messages = memory_storage.local_memory.get_chat_history(state["current_channel"])
+        formatted_previous_messages = ""
+        for message in previous_messages[:-1]:
+            user = message[0]
+            content = message[1]
+            formatted_previous_messages += f"{user}: {content}\n"
 
         all_descriptions = {
             'query': '- query: For querying the SQL database with user-specific queries.\n',
@@ -210,7 +230,7 @@ class Agent:
         when_to_use = [all_when_to_use[t] for t in self.allowed_tools]
 
         # 2) build system prompt & history
-        system_prompt = SystemMessage(content=f"""
+        system_prompt = f"""
         You are an intelligent assistant with access to tools and never hallucinates.
         You must decide when to use tools based on the user's request and the conversation history.
 
@@ -218,13 +238,7 @@ class Agent:
         {'\n'.join(descriptions)}
                                     
         If the user's single request implies more than one tool operation, you should generate ALL of the corresponding tool calls in one go, in the order they should run, without asking the user to choose.
-    
-        Format your plan as a JSON array under `tool_calls`, e.g.:
-        [
-            {{ "name": "summarize", "args": {{ "channel_id": "{state['current_channel']}" }} }},
-            {{ "name": "search",    "args": {{ "channel_id": "{state['current_channel']}", "tool_name": "tool_input" }} }}
-        ]
-        
+
         IMPORTANT: Only use tools when the user explicitly requests information that requires them.
         
         Current channel ID: {state["current_channel"]}
@@ -239,83 +253,136 @@ class Agent:
         - Simple responses that don't require data lookup
         
         For simple greetings and conversation, respond directly without using tools.
-        Keep in mind, tool outputs will not be shown to the user directly. You must interpret the results and provide a clear, helpful response.
-        When asked for summaries, only use information given by the tools.
         
-        If this is a simple greeting or conversation, respond directly. 
         If this requires database/search/summary operations, use the appropriate tool.
+
+        ABOUT TASK DESCRIPTIONS:
+        When creating a task description, be extremely specific and include ALL relevant details:
+        - BAD: "Search for information based on previous queries"
+        - GOOD: "Search for information about Python error handling that was discussed yesterday"
+        
+        Your task description must be self-contained with all necessary context because:
+        1. The response generator will only see THIS task description, not the full conversation history
+        2. Previous queries/messages are not automatically accessible
+        3. All relevant details from user's current and previous messages must be included
+        
+        For example, if a user says "Can you find what John said about databases?", your task should be:
+        "TASK: Search for messages from user John about databases in the conversation history"
+
+        IMPORTANT INSTRUCTIONS:
+        1. If you decide to use tools, first provide a clear task description that explains what the user is asking for, including any context from previous messages.
+        2. The task description should be comprehensive enough that someone reading it would understand exactly what needs to be answered.
+        3. Format your response as:
+        
+        "TASK: [Clear description of what the user wants, with full context of previous responses]"
+        
+        Then make your tool calls.
 
         Feel free to ask for clarification if the user's request is ambiguous.
         DO NOT HALLUCINATE OR MAKE UP INFORMATION. If you don't know the answer, say so.
         
-        IMPORTANT: If you have already called a tool and received results, provide a final answer to the user based on those results. Do NOT call the same tool again.
-        """)
-        messages = [system_prompt] + state["messages"]
+        PREVIOUS MESSAGES:
+        {formatted_previous_messages}
 
-        plan = self.llm_with_tools.invoke(messages)
-
-        # 2) If no tools, just return
-        if not plan.tool_calls:
-            return {"messages": [plan]}
-
-        # 3) Execute each requested tool, but append results as AIMessage
-        tool_map = {t.name: t for t in self.tool_functions}
-        for call in plan.tool_calls:
-            name = call["name"]
-            args = call.get("args", {})
-            if name not in tool_map:
-                raise ValueError(f"Unknown tool: {name}")
-
-            # Run the tool
-            logging.info(f'args: \n {args}')
-            result = tool_map[name](args)
-
-            # Log the tool usage
-            logging.info(
-                f"""🛠️ Tool Called: {name}
-                ⏰ Time: {datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H-%M-%SZ")}
-                👤 User: {state['current_user']}
-                💬 Channel: {state['current_channel']}
-                🧾 Args: {args}
-                """
-            )
-
-            # Append tool output as AI message
-            messages.append(AIMessage(content=f"[{name} output]:\n{result}"))
-
-        # 4) Final synthesis—only System/Human/AI messages here
-        final = self.llm.invoke(
-            messages + [
-                HumanMessage(
-                    content="Please combine the above results into one final clear answer for the user."
-                )
-            ]
-        )
-
-        return {"messages": [final]}
-
-    def router(self, state: State) -> str:
+        CURRENT USER MESSAGE:
         """
-        Router function to determine the next action based on the current state of the conversation.
-        
+
+        message = system_prompt + "\n" + state["messages"][-1].content
+
+        system_message = HumanMessage(content=message)
+
+        response = self.llm_with_tools.invoke([system_message])
+
+        print(f"\n##### CONDUCTOR RESPONSE ##### \n\n{response}")
+
+        task_description = ""
+        if hasattr(response, 'tool_calls') and response.tool_calls:
+            content = response.content or ""
+            if "TASK:" in content:
+                task_start = content.find("TASK:") + len("TASK:")
+                task_end = content.find("\n", task_start)
+                if task_end == -1:
+                    task_end = len(content)
+                task_description = content[task_start:task_end].strip()
+            else:
+                task_description = f"User asked: {state['messages'][-1].content.strip()}"
+        return {
+            "messages": [response],
+            "current_user": state["current_user"],
+            "current_channel": state["current_channel"],
+            "task_description": task_description
+        }
+    
+    def generate_response(self, state: State) -> dict:
+        """
+        Generate a response based on the current state of the conversation.
+
         Args:
             state (State): The current state of the conversation.
         Returns:
-            str: The next action to take, which can be a tool name or a direct response.
+            dict: A dictionary containing the response messages from the agent.
+        """
+        original_user_query = None
+        tools_results = []
+
+        for msg in state["messages"]:
+            if hasattr(msg, "content") and not hasattr(msg, "tool_call_id") and not hasattr(msg, "tool_calls"):
+                if not original_user_query:
+                    original_user_query = msg
+            elif hasattr(msg, "tool_call_id"):
+                tools_results.append(msg)
+
+        tool_results_text = ""
+        if tools_results:
+            tool_results_text = "\n".join([
+                f"Tool '{msg.name}' results: {msg.content}" for msg in tools_results
+            ])
+
+        task_to_complete = state.get("task_description", "") or (original_user_query.content if original_user_query else "Unknown query")
+        
+        response_prompt = f"""
+        You are an intelligent assistant. Based on the tool results below, provide a comprehensive and helpful answer to complete the specified task.
+
+        TASK TO COMPLETE: {task_to_complete}
+
+        Original User Message: "{original_user_query.content if original_user_query else 'Unknown query'}"
+
+        Tool Results:
+        {tool_results_text}
+
+        Instructions:
+        1. Focus on completing the task as described above using the information from the tool results.
+        2. Provide a complete, helpful answer based on the tool results.
+        3. Do not hallucinate or make up information not provided in the tool results.
+        4. Be concise but thorough in your response.
+        5. Do NOT request additional tools unless the current results are completely insufficient.
+
+        Current channel ID: {state["current_channel"]}
+        Current user: {state["current_user"]}
+
+        Provide a final answer based on the tool results above or call additional tools only if absolutely necessary.
         """
 
-        last_message = state["messages"][-1]
-        
-        if last_message.tool_calls:
-            return "tools"
-        else:
-            return "generate_response"
+        human_message = HumanMessage(content=response_prompt)
+
+        response = self.llm_with_tools.invoke([human_message])
+
+        print(f"\n##### RESPONSE ##### \n\n{response}")
+
+        return {
+            "messages": [response],
+            "current_user": state["current_user"],
+            "current_channel": state["current_channel"],
+            "task_description": state.get("task_description", "")
+        }
 
     def build_graph(self):
         builder = StateGraph(State)
         builder.add_node("conductor", self.conductor)
         builder.add_node("tools", self.tools)
+        builder.add_node("generate_response", self.generate_response)
         builder.set_entry_point("conductor")
+
         builder.add_conditional_edges(
             "conductor", 
             tools_condition,
@@ -324,7 +391,15 @@ class Agent:
                 "__end__": END
             }
         )
-        builder.add_edge("tools", "conductor")
+        builder.add_edge("tools", "generate_response")
+        builder.add_conditional_edges(
+            "generate_response",
+            tools_condition,
+            {
+                "tools": "tools",
+                "__end__": END
+            }
+        )
 
-        chat_memory, thread_id = memory_storage.local_memory.get_chat_memory()
+        chat_memory = memory_storage.get_memory_saver()
         self.graph = builder.compile(checkpointer=chat_memory)

@@ -229,13 +229,14 @@ async def on_message(message):
         """
         messages = HumanMessage(content=user_message)
 
-        chat_memory, config = memory_storage.local_memory.get_chat_memory()
+        config = memory_storage.get_config(channel_id)
+        memory_saver = memory_storage.get_memory_saver()
 
         ### ROLE BASED ACCESS, FOR NOW I JUST SET IT TO ALL ROLES - rochan #####################################################################
         allowed_tools = ['query', 'summarize', 'summarize_by_time', 'search']
         role_name = 'default_role'
         agent = Agent(role_name=role_name, allowed_tools=allowed_tools)
-        response = agent.graph.invoke({
+        response = agent.invoke({
                 "current_channel": channel_id,
                 "current_user": user_id,
                 "messages": [messages]
