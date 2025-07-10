@@ -194,4 +194,16 @@ class MemoryStorage:
         
         print("Stored all cached histories into long-term memory.")
 
+    def get_config(self, channel_id: int) -> dict:
+        """
+        Retrieves the configuration for a given channel ID.
+        This is used to access settings or preferences associated with the channel.
+        Args:
+            channel_id (int): The ID of the channel to retrieve the configuration for.
+        Returns:
+            dict: A dictionary containing the configuration settings for the specified channel.
+        """
+
+        return {"configurable": {"thread_id": str(self.remote_memory.get_thread_id(channel_id))}}
+
 memory_storage = MemoryStorage()
