@@ -265,7 +265,6 @@ async def on_message(message):
         if user_permission_role == "administrator":
             # Call agent for admin
             allowed_tools = ['query', 'summarize', 'summarize_by_time', 'search'] # Tools allowed for admin use
-            logging.info(f"User {user_name} (Admin) is using agent with tools: {allowed_tools}")
             role_name = "admin_agent"
             agent = Agent(role_name=role_name, allowed_tools=allowed_tools)
             logging.info(f"User {user_name} (Admin) is using agent with tools: {allowed_tools}")
@@ -291,7 +290,6 @@ async def on_message(message):
         elif user_permission_role == "member":
             # Call agent for members
             allowed_tools = ['query', 'summarize', 'summarize_by_time', 'search'] # Tools allowed for member use
-            logging.info(f"User {user_name} (Member) is using agent with tools: {allowed_tools}")
             role_name = "member_agent"
             agent = Agent(role_name=role_name, allowed_tools=allowed_tools)
             logging.info(f"User {user_name} (Member) is using agent with tools: {allowed_tools}")
