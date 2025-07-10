@@ -310,54 +310,6 @@ def router(state: State) -> str:
     else:
         return "generate_response"
 
-def generate_response(state: State) -> dict:
-    """
-    Synthesizes a final response from tool outputs and conversation history.
-
-    Args:
-        state (State): Current state.
-    
-    Returns:
-        dict: A dictionary with the final response message.
-    """
-    user_query = ""
-    tool_results = ""
-    conversation_history = ""
-    
-#     for msg in state["messages"]:
-#         if hasattr(msg, '__class__'):
-#             if msg.__class__.__name__ == 'HumanMessage' and hasattr(msg, 'content'):
-#                 user_query = msg.content
-#                 conversation_history += f"User: {msg.content}\n"
-#             elif msg.__class__.__name__ == 'AIMessage' and hasattr(msg, 'content'):
-#                 if msg.content and "Tool Calls:" not in msg.content:
-#                     conversation_history += f"Assistant: {msg.content}\n"
-#             elif msg.__class__.__name__ == 'ToolMessage' and hasattr(msg, 'content'):
-#                 tool_results += f"{msg.content}\n"
-
-#     # Create a clean, simple prompt
-#     final_prompt = f"""
-#     User's original question: {user_query}
-    
-#     Tool results: {tool_results}
-    
-#     Previous conversation:
-#     {conversation_history}
-    
-#     Please provide a clear, helpful final response to the user's question using the tool results:
-#     """
-
-#     try:
-#         response = llm.invoke([HumanMessage(content=final_prompt)])
-#         memory_storage.add_message(state["current_channel"], 'Bot', response.content.strip())
-#         return {"messages": [response]}
-#     except Exception as e:
-#         print(f"❌ ERROR: {e}")
-#         fallback_response = AIMessage(
-#             content="I apologize, but I'm experiencing technical difficulties. Please try your request again."
-#         )
-#         return {"messages": [fallback_response]}
-
 # ── Graph Construction ────────────────────────────────────────────────
 tools = ToolNode(
     name="tools",
@@ -373,7 +325,6 @@ builder = StateGraph(State)
 
 builder.add_node("conductor", conductor)
 builder.add_node("tools", tools)
-# builder.add_node("generate_response", generate_response)
 
 builder.set_entry_point("conductor")
 builder.add_conditional_edges(
@@ -385,7 +336,6 @@ builder.add_conditional_edges(
     }
 )
 builder.add_edge("tools", "conductor")
-# builder.add_edge("generate_response", END)
 
 chat_memory, thread_id = memory_storage.local_memory.get_chat_memory()
 
