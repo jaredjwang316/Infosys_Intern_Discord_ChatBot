@@ -29,7 +29,7 @@ import datetime
 
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 from memory_storage import memory_storage
-from agent import agent_graph
+from agent import Agent
 
 load_dotenv()
 api_key       = os.getenv("GOOGLE_API_KEY")
@@ -230,11 +230,17 @@ async def on_message(message):
         messages = HumanMessage(content=user_message)
 
         chat_memory, config = memory_storage.local_memory.get_chat_memory()
-        response = agent_graph.invoke({
+
+        ### ROLE BASED ACCESS, FOR NOW I JUST SET IT TO ALL ROLES - rochan #####################################################################
+        allowed_tools = ['query', 'summary', 'summarize_by_time', 'search']
+        role_name = 'default_role'
+        agent = Agent(role_name=role_name, allowed_tools=allowed_tools)
+        response = agent.graph.invoke({
                 "current_channel": channel_id,
                 "current_user": user_id,
                 "messages": [messages]
         }, config)
+        ##########################################################################################################################################
         
         try:
             bot_reply = response["messages"][-1].content.strip()
