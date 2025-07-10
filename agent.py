@@ -191,7 +191,7 @@ class Agent:
 
         all_descriptions = {
             'query': '- query: For querying the SQL database with user-specific queries.\n',
-            'summary': '- summarize: For summarizing the entire conversation history of a channel.\n',
+            'summarize': '- summarize: For summarizing the entire conversation history of a channel.\n',
             'summarize_by_time': '- summarize_by_time: For summarizing conversation history within a specific time range.\n',
             'search': '- search: For searching the conversation history for specific information.\n',
         }
@@ -201,7 +201,7 @@ class Agent:
             'summarize_by_time': '- "summarize conversation history for last X days/hours" → Use summarize_by_time tool\n',
             'search': '- "search for something" or asking about something from the conversation → Use search tool\n',
             'query': '- "query database" or specific data requests → Use query tool\n',
-            'summary': '- "general summary" → Use summarize tool\n',
+            'summarize': '- "general summary" → Use summarize tool\n',
         }
         when_to_use = [all_when_to_use[t] for t in self.allowed_tools]
 
