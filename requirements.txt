@@ -1,5 +1,5 @@
 asyncio
-sys
+# sys
 python-dotenv
 discord
 logging
