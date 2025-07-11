@@ -520,11 +520,13 @@ def retry_query(sql_query, information=None):
             response = strip_query(response)
 
             print(response)
-
         
         cur.execute(response)   #executes the query against the live database.
         rows = cur.fetchall()   #retrieves all the rows returned by the executed query.
         count += 1
+
+    if is_valid_sql(response) is False:
+        return "❌ Unable to generate a valid SQL query after multiple attempts."
 
     if not rows:
         return None

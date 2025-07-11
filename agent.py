@@ -12,9 +12,6 @@ Key Features:
 - Maintains stateful interaction using LocalMemory and conversation context.
 """
 
-# TODO: Add logging to the TASK statements by conductor
-# TODO: Fix the infinite loops from asking to DELETE from database or do other things that
-#       the bot isn't allowed to do. Idea could be just immediately return an error message from query tool and tell the bot to not do that.
 # TODO: Add in gcal integration to allow the bot to create events in the user's calendar
 # TODO: Add in a max queries and timeout system to prevent the bot trying indefinitely
 # TODO: Add in a way to switch llms or to try again on queries that fail due to rate limits or other issues
@@ -32,7 +29,6 @@ from langgraph.prebuilt import ToolNode, tools_condition
 import logging
 import datetime
 import concurrent.futures
-import io
 
 from functions.query import query_data
 from functions.summary import summarize_conversation, summarize_conversation_by_time
@@ -68,6 +64,7 @@ class State(TypedDict):
     current_channel: str
     task_description: str
     images: list[tuple[str, bytes]] | None
+    loop_count: int
 
 class Agent:
     """
@@ -93,6 +90,8 @@ class Agent:
             name="tools",
             tools=self.tool_functions,
         )
+
+        self.max_iterations = 3
 
         self.graph = None
         self.build_graph()
@@ -249,7 +248,7 @@ class Agent:
             formatted_previous_messages += f"{user}: {content}\n"
 
         all_descriptions = {
-            'query': '- query: For querying the SQL database with natural language queries. It is also able to visualize results in a chart or diagram.\n',
+            'query': '- query: For querying the SQL database with natural language queries. No changes are allowed to be made to the database (no INSERT, DROP, etc.). It is also able to visualize results in a chart or diagram.\n',
             'summarize': '- summarize: For summarizing the entire conversation history of a channel.\n',
             'summarize_by_time': '- summarize_by_time: For summarizing conversation history within a specific time range.\n',
             'search': '- search: For searching the conversation history for specific information.\n',
@@ -373,6 +372,7 @@ class Agent:
         """
         original_user_query = None
         tools_results = []
+        current_loop_count = state.get("loop_count", 0) + 1
 
         for msg in state["messages"]:
             if hasattr(msg, "content") and not hasattr(msg, "tool_call_id") and not hasattr(msg, "tool_calls"):
@@ -388,29 +388,55 @@ class Agent:
             ])
 
         task_to_complete = state.get("task_description", "") or (original_user_query.content if original_user_query else "Unknown query")
-        
-        response_prompt = f"""
-        You are an intelligent assistant. Based on the tool results below, provide a comprehensive and helpful answer to complete the specified task.
 
-        TASK TO COMPLETE: {task_to_complete}
+        response_prompt = ""
+        if current_loop_count >= self.max_iterations:
+            response_prompt = f"""
+            You are an intelligent assistant. Based on the tool results below, provide a comprehensive and final answer to complete the specified task. This is your final response - no additional tools can be called.
 
-        Original User Message: "{original_user_query.content if original_user_query else 'Unknown query'}"
+            TASK TO COMPLETE: {task_to_complete}
 
-        Tool Results:
-        {tool_results_text}
+            Original User Message: "{original_user_query.content if original_user_query else 'Unknown query'}"
 
-        Instructions:
-        1. Focus on completing the task as described above using the information from the tool results.
-        2. Provide a complete, helpful answer based on the tool results.
-        3. Do not hallucinate or make up information not provided in the tool results.
-        4. Be concise but thorough in your response.
-        5. Do NOT request additional tools unless the current results are completely insufficient.
+            Tool Results:
+            {tool_results_text}
 
-        Current channel ID: {state["current_channel"]}
-        Current user: {state["current_user"]}
+            Instructions:
+            1. Focus on completing the task as described above using the information from the tool results.
+            2. Provide a complete, helpful answer based on the tool results.
+            3. Do not hallucinate or make up information not provided in the tool results.
+            4. Be concise but thorough in your response.
+            5. This is your FINAL response - you CANNOT call any additional tools.
+            6. If the tool results are insufficient, clearly state what information is missing and provide the best answer possible with available data.
 
-        Provide a final answer based on the tool results above or call additional tools only if absolutely necessary.
-        """
+            Current channel ID: {state["current_channel"]}
+            Current user: {state["current_user"]}
+
+            Provide your final answer based on the tool results above. No additional tools will be called.
+            """
+        else:
+            response_prompt = f"""
+            You are an intelligent assistant. Based on the tool results below, provide a comprehensive and helpful answer to complete the specified task.
+
+            TASK TO COMPLETE: {task_to_complete}
+
+            Original User Message: "{original_user_query.content if original_user_query else 'Unknown query'}"
+
+            Tool Results:
+            {tool_results_text}
+
+            Instructions:
+            1. Focus on completing the task as described above using the information from the tool results.
+            2. Provide a complete, helpful answer based on the tool results.
+            3. Do not hallucinate or make up information not provided in the tool results.
+            4. Be concise but thorough in your response.
+            5. Do NOT request additional tools unless the current results are completely insufficient.
+
+            Current channel ID: {state["current_channel"]}
+            Current user: {state["current_user"]}
+
+            Provide a final answer based on the tool results above or call additional tools only if absolutely necessary.
+            """
 
         human_message = HumanMessage(content=response_prompt)
 

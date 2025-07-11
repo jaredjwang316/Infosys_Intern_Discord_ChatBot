@@ -310,9 +310,21 @@ async def on_message(message):
         
         try:
             bot_reply = response["messages"][-1].content.strip()
+            
+            formatted_reply = ""
+            if "TASK:" in bot_reply:
+                task_start = bot_reply.find("TASK:") + len("TASK:")
+                task_end = bot_reply.find("\n", task_start)
+                if task_end == -1:
+                    task_end = len(bot_reply)
+                formatted_reply = bot_reply[task_start:task_end].strip()
+            else:
+                formatted_reply = bot_reply
+            
             print(response["messages"])
-            memory_storage.add_message(channel_id, "Bot", bot_reply)
-            replies = split_response(bot_reply)
+
+            memory_storage.add_message(channel_id, "Bot", formatted_reply)
+            replies = split_response(formatted_reply)
             for reply in replies:
                 await message.channel.send(reply)
 
