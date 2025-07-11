@@ -22,6 +22,7 @@ import discord
 import logging
 import sys
 import asyncio
+import io
 
 from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -259,7 +260,6 @@ async def on_message(message):
         messages = HumanMessage(content=user_message)
 
         config = memory_storage.get_config(channel_id)
-        memory_saver = memory_storage.get_memory_saver()
 
         ### ROLE BASED ACCESS #####################################################################
         if user_permission_role == "administrator":
@@ -310,10 +310,27 @@ async def on_message(message):
         
         try:
             bot_reply = response["messages"][-1].content.strip()
+            print(response["messages"])
             memory_storage.add_message(channel_id, "Bot", bot_reply)
             replies = split_response(bot_reply)
             for reply in replies:
                 await message.channel.send(reply)
+
+            images = response.get("images", [])
+            if images:
+                logging.info(f"📸 Sending {len(images)} images in response to {user_name} in channel {channel_id}")
+                for filename, file_data in images:
+                    try:
+                        if isinstance(file_data, bytes):
+                            file_buffer = io.BytesIO(file_data)
+                        else:
+                            file_buffer = file_data
+                        discord_file = discord.File(file_buffer, filename=filename)
+                        await message.channel.send(file=discord_file)
+                        logging.info(f"✅ Image {filename} sent successfully.")
+                    except Exception as e:
+                        logging.error(f"❌ Failed to send image {filename}: {e}")
+                        await message.channel.send(f"❌ Error sending image {filename}")
         except Exception as e:
             await message.channel.send(f"❌ Error: {e}")
             return

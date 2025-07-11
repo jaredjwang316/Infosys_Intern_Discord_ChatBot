@@ -32,6 +32,7 @@ from langgraph.prebuilt import ToolNode, tools_condition
 import logging
 import datetime
 import concurrent.futures
+import io
 
 from functions.query import query_data
 from functions.summary import summarize_conversation, summarize_conversation_by_time
@@ -66,6 +67,7 @@ class State(TypedDict):
     current_user: str
     current_channel: str
     task_description: str
+    images: list[tuple[str, bytes]] | None
 
 class Agent:
     """
@@ -76,6 +78,8 @@ class Agent:
         self.role_name = role_name
         self.allowed_tools = allowed_tools
         self.tool_functions = [getattr(self, tool_name) for tool_name in allowed_tools if tool_name in allowed_tools]
+
+        self._pending_images = []
 
         self.llm = ChatGoogleGenerativeAI(
             model=model_name,
@@ -109,7 +113,7 @@ class Agent:
         return self.graph.invoke(state, config)
 
     @tool
-    def query(user_id: str, user_query: str) -> list[str]:
+    def query(user_query: str) -> str:
         """
         Query the SQL database with the user's query.
 
@@ -120,9 +124,30 @@ class Agent:
             list[str]: A list of messages containing the query result.
         """
         print("QUERYING")
+
+        result = query_data(user_query)
         
-        user_id = int(user_id)
-        return query_data(user_id, user_query, memory_storage.local_memory.get_user_query_session_history(user_id))
+        if isinstance(result, str):
+            return result
+        elif isinstance(result, dict):
+            if result.get("file"):
+                filename = result.get("filename", "chart.png")
+                file_data = result.get("file")
+
+                if hasattr(file_data, 'getvalue'):
+                    file_bytes = file_data.getvalue()
+                else:
+                    file_bytes = file_data
+
+                if not hasattr(Agent, '_current_instance'):
+                    Agent._current_instance = None
+                
+                if Agent._current_instance:
+                    Agent._current_instance._pending_images.append((filename, file_bytes))
+
+                return "Query returned a diagram or table representing the data and is ready to be displayed."
+            else:
+                return "Query failed to generate a diagram or table."
 
     @tool
     def summarize(channel_id: str) -> str:
@@ -201,6 +226,9 @@ class Agent:
         return total_result if total_result else quick_result
 
     def conductor(self, state: State) -> dict:
+        Agent._current_instance = self
+        self._pending_images = []
+
         # 1) bootstrap memory
         if not state["messages"]:
             state["messages"] = []
@@ -221,7 +249,7 @@ class Agent:
             formatted_previous_messages += f"{user}: {content}\n"
 
         all_descriptions = {
-            'query': '- query: For querying the SQL database with user-specific queries.\n',
+            'query': '- query: For querying the SQL database with natural language queries. It is also able to visualize results in a chart or diagram.\n',
             'summarize': '- summarize: For summarizing the entire conversation history of a channel.\n',
             'summarize_by_time': '- summarize_by_time: For summarizing conversation history within a specific time range.\n',
             'search': '- search: For searching the conversation history for specific information.\n',
@@ -238,55 +266,66 @@ class Agent:
 
         # 2) build system prompt & history
         system_prompt = f"""
-        You are an intelligent assistant with access to tools and never hallucinates.
-        You must decide when to use tools based on the user's request and the conversation history.
+        You are an intelligent assistant's planner with access to tools and never hallucinates.
+        Decide when to use tools based on user requests.
 
-        You have access to the following tools:
+        Available tools:
         {'\n'.join(descriptions)}
-                                    
-        If the user's single request implies more than one tool operation, you should generate ALL of the corresponding tool calls in one go, in the order they should run, without asking the user to choose.
+                        
+        If one request needs multiple tools, generate ALL tool calls at once in the correct order.
 
-        IMPORTANT: Only use tools when the user explicitly requests information that requires them.
-        
-        Current channel ID: {state["current_channel"]}
-        Current user: {state["current_user"]}
+        Current channel: {state["current_channel"]} | User: {state["current_user"]}
         
         WHEN TO USE TOOLS:
         {'\n'.join(when_to_use)}
         
         WHEN NOT TO USE TOOLS:
-        - Greetings like "hello", "good afternoon", "hi"
-        - General conversation or questions unrelated to the conversation history or database
-        - Simple responses that don't require data lookup
+        - Greetings ("hello", "hi", etc.)
+        - General conversation unrelated to conversation history/database
+        - Simple responses not requiring data lookup
         
-        For simple greetings and conversation, respond directly without using tools.
-        
-        If this requires database/search/summary operations, use the appropriate tool.
+        TASK DESCRIPTIONS:
+        Before making tool calls, you MUST plan and create a comprehensive task description:
 
-        ABOUT TASK DESCRIPTIONS:
-        When creating a task description, be extremely specific and include ALL relevant details:
-        - BAD: "Search for information based on previous queries"
-        - GOOD: "Search for information about Python error handling that was discussed yesterday"
-        
-        Your task description must be self-contained with all necessary context because:
+        1. ANALYZE the user's request and identify what specific information they need
+        2. CONSIDER any relevant context from previous messages
+        3. PLAN what tools you'll need and in what order
+        4. CREATE a detailed task description that includes:
+            - The specific question/request
+            - Relevant context from conversation
+            - What type of information is needed
+            - Any time constraints or specifics mentioned
+
+        PLANNING PROCESS:
+        - First, think through what the user is asking for
+        - Identify which tools are needed
+        - Consider the order of operations
+        - Write a complete task description with all context
+        - Then make your tool calls
+
+        Example:
+        User: "What did Sarah say about the project last week?"
+        Your planning: The user wants to find messages from Sarah about a project from last week. I need to search the conversation history.
+        TASK: Search for messages from user Sarah about project-related topics from the past week
+
+        User: "Can you summarize recent discussions?"
+        Your planning: The user wants a summary of recent conversations. I should use summarize_by_time for recent activity.
+        TASK: Summarize conversation history from the past few days to capture recent discussions
+
+        IMPORTANT: Your task description must be self-contained with all necessary context because:
         1. The response generator will only see THIS task description, not the full conversation history
         2. Previous queries/messages are not automatically accessible
         3. All relevant details from user's current and previous messages must be included
-        
-        For example, if a user says "Can you find what John said about databases?", your task should be:
-        "TASK: Search for messages from user John about databases in the conversation history"
 
-        IMPORTANT INSTRUCTIONS:
-        1. If you decide to use tools, first provide a clear task description that explains what the user is asking for, including any context from previous messages.
-        2. The task description should be comprehensive enough that someone reading it would understand exactly what needs to be answered.
-        3. Format your response as:
-        
-        "TASK: [Clear description of what the user wants, with full context of previous responses]"
-        
-        Then make your tool calls.
+        Example of task descriptions:
+        - BAD: "Search for information based on previous queries"
+        - GOOD: "Search for information about Python error handling that was discussed yesterday"
 
         Feel free to ask for clarification if the user's request is ambiguous.
         DO NOT HALLUCINATE OR MAKE UP INFORMATION. If you don't know the answer, say so.
+        
+        Format: "TASK: [Complete description with full context]"
+        Then make tool calls.
         
         PREVIOUS MESSAGES:
         {formatted_previous_messages}
@@ -313,6 +352,9 @@ class Agent:
                 task_description = content[task_start:task_end].strip()
             else:
                 task_description = f"User asked: {state['messages'][-1].content.strip()}"
+
+        logging.info(f"Task: {task_description}\nTool calls: {response.tool_calls}")
+
         return {
             "messages": [response],
             "current_user": state["current_user"],
@@ -376,17 +418,35 @@ class Agent:
 
         print(f"\n##### RESPONSE ##### \n\n{response}")
 
+        if hasattr(response, 'tool_calls') and response.tool_calls:
+            tool_calls = response.tool_calls
+            logging.info(f"Response contains tool calls: {tool_calls}")
+        else:
+            logging.info("Response does not contain any tool calls.")
+
         return {
             "messages": [response],
             "current_user": state["current_user"],
             "current_channel": state["current_channel"],
-            "task_description": state.get("task_description", "")
+            "task_description": state.get("task_description", ""),
+            "images": state.get("images", [])
         }
+    
+    def tools_node(self, state: State) -> dict:
+
+        self._pending_images = []
+        result = self.tools.invoke(state)
+
+        if self._pending_images:
+            result["images"] = self._pending_images
+            self._pending_images = []
+        
+        return result
 
     def build_graph(self):
         builder = StateGraph(State)
         builder.add_node("conductor", self.conductor)
-        builder.add_node("tools", self.tools)
+        builder.add_node("tools", self.tools_node)
         builder.add_node("generate_response", self.generate_response)
         builder.set_entry_point("conductor")
 
