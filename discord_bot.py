@@ -42,6 +42,7 @@ client = discord.Client(intents=intents)
 # Memory: {user_id: [(role, message, timestamp)]}
 local_memory = LocalMemory()
 scheduled_events = []
+scheduled_gcal_events = []
 str_events = []
 
 def split_response(response, line_split=True):
@@ -213,16 +214,15 @@ async def on_message(message):
         event_details = user_message[7:].strip()
         guild = message.guild
 
-        create_event = cal_handler(event_details)  
+        event_action = cal_handler(event_details)
 
-        if create_event.lower() == 'create':
+        # CREATE EVENTS
+        if event_action.lower() == 'create':
             try:
+                # event_dict: {'title': title, 'start_dt': start time, 'end_dt': end time}
                 event_dict = get_event_details(event_details)
-                scheduled_events.append(event_dict)
-                str_events.append(str(event_dict))
-                #print(str(event_dict))
-                print(event_dict)
 
+                # establish overwrite rules
                 overwrites = {guild.default_role: discord.PermissionOverwrite(connect=False)}
                 overwrites[message.author] = discord.PermissionOverwrite(connect=True)
 
@@ -249,10 +249,14 @@ async def on_message(message):
                 await message.channel.send(f"✅ Scheduled event: {discord_event.name}")
 
                 # Create Google Calendar event
-                calendar_link = create_gcal_event(event_dict)
+                calendar_link, event_id = create_gcal_event(event_dict)
+
+                event_dict['gcal_link'] = calendar_link
+                event_dict['gcal_event_id'] = event_id
 
                 await message.channel.send(f"📅 Google Calendar event created: {calendar_link}")
-            
+
+                # send invite DMs
                 for user in message.mentions:
                     try:
                         await user.send(f"You've been invited to **{event_dict['title']}** on {event_dict['start_dt']}.")
@@ -261,13 +265,20 @@ async def on_message(message):
                                         f"🔗 Add it to your calendar: {calendar_link}")
                     except discord.Forbidden:
                         print(f"❌ Can't DM {user.name}")
+                
+                # add events to full list (local memory)
+                scheduled_events.append(event_dict)
+                str_events.append(str(event_dict))
             
             except Exception as e:
                 await message.channel.send(f"❌ Failed to create event: {e}")
         
-        elif create_event.lower() == 'edit':
+        # EDIT EVENTS
+        elif event_action.lower() == 'edit':
             try:
-                updated_event_dict = edit_event(event_details, str_events)
+                updated_event_dict = edit_event_details(event_details, str_events)
+
+                # edit discord
                 updated_event = discord.utils.get(guild.scheduled_events, name=updated_event_dict['title'])
                 
                 await updated_event.edit(
@@ -276,8 +287,12 @@ async def on_message(message):
                     end_time=updated_event_dict['end_dt']
                 )
 
+                # edit gcal
+                edit_gcal_event(updated_event_dict)
+
                 await message.channel.send(f"✅ UPDATE - Scheduled event: {updated_event.name}")
                 
+                # send update DMs
                 for user in message.mentions:
                     try:
                         await user.send(f"The following event has been updated: **{updated_event_dict['title']}** on {updated_event_dict['start_dt']}.")
@@ -287,9 +302,10 @@ async def on_message(message):
             except Exception as e:
                 await message.channel.send(f"❌ Failed to edit event: {e}")
         
-        elif create_event.lower() == 'delete':
+        # DELETE EVENTS
+        elif event_action.lower() == 'delete':
             try:
-                deleted_event_dict = delete_event(event_details, str_events)
+                deleted_event_dict = delete_event_details(event_details, str_events)
                 deleted_event = discord.utils.get(guild.scheduled_events, name=deleted_event_dict['title'])
                 
                 if deleted_event:
@@ -300,11 +316,14 @@ async def on_message(message):
 
                     await message.channel.send(f"🗑️ Event '{deleted_event.name}' has been deleted.")
 
+                    delete_gcal_event(deleted_event_dict['gcal_event_id'])
+
                     for user in message.mentions:
                         try:
-                            await user.send(f"The following event has been deleted: **{updated_event_dict['title']}** on {updated_event_dict['start_dt']}.")
+                            await user.send(f"The following event has been deleted: **{deleted_event_dict['title']}** on {deleted_event_dict['start_dt']}.")
                         except discord.Forbidden:
                             print(f"❌ Can't DM {user.name}")
+
                 else:
                     await message.channel.send(f"❌ No matching scheduled event found.")
 
