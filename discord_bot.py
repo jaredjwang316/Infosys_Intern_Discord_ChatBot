@@ -289,7 +289,7 @@ async def on_message(message):
             
         elif user_permission_role == "member":
             # Call agent for members
-            allowed_tools = ['query', 'summarize', 'summarize_by_time', 'search'] # Tools allowed for member use
+            allowed_tools = ['summarize', 'summarize_by_time', 'search'] # Tools allowed for member use MEMBERS CANNOT QUERY
             role_name = "member_agent"
             agent = Agent(role_name=role_name, allowed_tools=allowed_tools)
             logging.info(f"User {user_name} (Member) is using agent with tools: {allowed_tools}")
