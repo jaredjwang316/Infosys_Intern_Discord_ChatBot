@@ -24,6 +24,8 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage
 import psycopg2
 from psycopg2 import OperationalError
+import matplotlib.pyplot as plt
+import io
 
 
 
@@ -127,8 +129,6 @@ def generate_chart_file(rows, columns, chart_type="bar", user_query=None):
         - Automatically formats axis labels and titles.
         - Returns None if input data is insufficient or invalid.
     """
-    import matplotlib.pyplot as plt
-    import io
 
     if len(columns) < 2 or not rows:
         return None
@@ -221,10 +221,6 @@ model = ChatGoogleGenerativeAI(
     timeout=None,
     max_retries=2
 )
-
-# Memory: {user_id: [(role, message)]}
-user_chat_history = {}
-total_chat_history = {}
 
 tips = str()
 
@@ -455,8 +451,7 @@ def retry_query(sql_query, information=None):
         cols = [desc[0] for desc in cur.description]
         lines = [" | ".join(cols)]
         lines += [" | ".join(map(str, row)) for row in rows]
-        table = "\n".join(lines)
-        information = format_table(table)
+        information = "\n".join(lines)
 
         retry_template = f"""
         You previously generated a SQL query that did not return any results. Based on the new information retrieved, please refine your SQL query to ensure it fulfills the user's request and retrieves relevant data.
@@ -525,11 +520,13 @@ def retry_query(sql_query, information=None):
             response = strip_query(response)
 
             print(response)
-
         
         cur.execute(response)   #executes the query against the live database.
         rows = cur.fetchall()   #retrieves all the rows returned by the executed query.
         count += 1
+
+    if is_valid_sql(response) is False:
+        return "❌ Unable to generate a valid SQL query after multiple attempts."
 
     if not rows:
         return None
@@ -537,9 +534,8 @@ def retry_query(sql_query, information=None):
     lines = [" | ".join(cols)]
     lines += [" | ".join(map(str, row)) for row in rows]
     table = "\n".join(lines)
-    tables = format_table(table)
 
-    return tables
+    return table
 
 def is_valid_sql(query):
     """
@@ -587,38 +583,7 @@ def is_valid_sql(query):
 
     return True
 
-def format_table(table):
-    """
-    Split a large textual table into chunks to avoid message length limits.
-
-    Args:
-        table (str): A string representing tabular data (headers and rows separated by newlines).
-
-    Returns:
-        List[str]: A list of smaller string chunks each under the maximum allowed length (e.g., 2000 chars).
-
-    Purpose:
-        - Facilitates sending large results over Discord or similar platforms without truncation.
-    """
-    max_length = 2000
-    lines = table.split("\n")
-    formatted_lines = []
-    current_chunk = ""
-
-    curr_len = 0
-    for line in lines:
-        if curr_len + len(line) >= max_length:
-            formatted_lines.append(current_chunk)
-            current_chunk = line + "\n"
-            curr_len = len(line) + 1
-        else:
-            current_chunk += line + "\n"
-            curr_len += len(line) + 1
-    if current_chunk:
-        formatted_lines.append(current_chunk)
-    return formatted_lines
-
-def query_data(user_id, user_query, session_history=None):
+def query_data(user_query):
     """
     Main entry point to process a user's natural language query into data response(s).
 
@@ -641,65 +606,55 @@ def query_data(user_id, user_query, session_history=None):
         - Stores last user and SQL queries for short-term memory.
     """
 
-    # Create a contextual prompt using the session history (previous queries in the session)
-    contextualized_query = user_query
+    # # Create a contextual prompt using the session history (previous queries in the session)
+    # contextualized_query = user_query
 
-    if session_history != None and len(session_history) > 1:
-        # Take all previous queries except the current one
-        previous_queries = session_history[:-1]
+    # if session_history != None and len(session_history) > 1:
+    #     # Take all previous queries except the current one
+    #     previous_queries = session_history[:-1]
         
-        # Manually build the context block line by line
-        context_lines = []
-        count = 1
-        for q in previous_queries:
-            context_lines.append(f"{count}. {q}")
-            count += 1
+    #     # Manually build the context block line by line
+    #     context_lines = []
+    #     count = 1
+    #     for q in previous_queries:
+    #         context_lines.append(f"{count}. {q}")
+    #         count += 1
 
-        context_block = ""
-        for line in context_lines:
-            context_block += line + "\n"
+    #     context_block = ""
+    #     for line in context_lines:
+    #         context_block += line + "\n"
 
-        # Add context into the prompt
-        contextualized_query = (
-            "Here is the context of this conversation session:\n"
-            + context_block +
-            "\nNow answer the follow-up question:\n"
-            + user_query
-        )
+    #     # Add context into the prompt
+    #     contextualized_query = (
+    #         "Here is the context of this conversation session:\n"
+    #         + context_block +
+    #         "\nNow answer the follow-up question:\n"
+    #         + user_query
+    #     )
 
 
-    sql_query = generate_query(contextualized_query)
+    # sql_query = generate_query(contextualized_query)
+    sql_query = generate_query(user_query)
     if not sql_query:
-        return ["❌ Unable to generate a valid SQL query after multiple attempts."]
+        return "❌ Unable to generate a valid SQL query after multiple attempts."
     
     cur.execute(sql_query)
     rows = cur.fetchall()
     if not rows:
         tables = retry_query(sql_query)
         if not tables:
-            return ["❌ No results found for the query. Please refine your request or try a different query."]
+            return "❌ No results found for the query. Please refine your request or try a different query."
     else:
-        # Save short-term memory
-        user_chat_history[user_id] = {
-            "last_user_query": user_query,
-            "last_sql_query": sql_query
-        }
-
         cols = [desc[0] for desc in cur.description]
 
         if is_visualization_query(user_query):
             chart_type = extract_chart_type(user_query)
             chart_file = generate_chart_file(rows, cols, chart_type, user_query=user_query)
             if chart_file:
-                return [{"type": "image", "file": chart_file, "filename": "chart.png"}]
+                return {"type": "image", "file": chart_file, "filename": "chart.png"}
 
         lines = [" | ".join(cols)]
         lines += [" | ".join(map(str, row)) for row in rows]
         table = "\n".join(lines)
-        tables = format_table(table)
 
-    texts = list()
-    for table in tables:
-        texts.append("```" + table + "```")
-    
-    return texts
+    return table

@@ -391,6 +391,25 @@ class RemoteMemory:
             })
 
         return formatted_results
+    
+    def get_thread_id(self, channel_id: int) -> int:
+        """
+        Retrieve the thread_id for a given channel_id from the channels table.
+        Args:
+            channel_id (int): The ID of the channel.
+        Returns:
+            int: The thread_id associated with the channel_id, or None if not found.
+        """
+        self._add_channel(channel_id)
+
+        query = """
+        SELECT thread_id
+        FROM channels
+        WHERE channel_id = %s;
+        """
+        self.cur.execute(query, (channel_id,))
+        result = self.cur.fetchone()
+        return result[0] if result else None
 
     def reindex_channel(self, channel_id: int, m: int, ef_search: int) -> None:
         """

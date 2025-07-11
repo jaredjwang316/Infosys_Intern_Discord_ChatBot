@@ -21,6 +21,7 @@ from datetime import datetime
 from langchain_core.vectorstores import InMemoryVectorStore
 from memory.remote_memory import RemoteMemory
 from memory.local_memory import LocalMemory
+from langgraph.checkpoint.memory import MemorySaver
 
 MAX_CACHED_MESSAGES = 20
 
@@ -41,6 +42,7 @@ class MemoryStorage:
     def __init__(self):
         self.local_memory = LocalMemory()
         self.remote_memory = RemoteMemory()
+        self.memory_saver = MemorySaver()
 
     def add_message(self, channel_id: int, user_id: int, content: str):
         """
@@ -95,6 +97,16 @@ class MemoryStorage:
         """
 
         return self.local_memory.get_vectorstore(channel_id)
+    
+    def get_memory_saver(self) -> MemorySaver:
+        """
+        Retrieves the MemorySaver instance used for checkpointing.
+        This is used to save and restore the state of the memory storage.
+        Returns:
+            MemorySaver: The MemorySaver instance for checkpointing.
+        """
+
+        return self.memory_saver
     
     def search_long_term_memory(self, channel_id: int, search_query: str, k: int = 5, similarity_threshold: float = 0.7) -> list[dict]:
         """
@@ -225,5 +237,17 @@ class MemoryStorage:
             self.store_in_long_term_memory(channel_id)
         
         print("Stored all cached histories into long-term memory.")
+
+    def get_config(self, channel_id: int) -> dict:
+        """
+        Retrieves the configuration for a given channel ID.
+        This is used to access settings or preferences associated with the channel.
+        Args:
+            channel_id (int): The ID of the channel to retrieve the configuration for.
+        Returns:
+            dict: A dictionary containing the configuration settings for the specified channel.
+        """
+
+        return {"configurable": {"thread_id": str(self.remote_memory.get_thread_id(channel_id))}}
 
 memory_storage = MemoryStorage()

@@ -22,6 +22,7 @@ import discord
 import logging
 import sys
 import asyncio
+import io
 
 from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -29,7 +30,7 @@ import datetime
 
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 from memory_storage import memory_storage
-from agent import agent_graph
+from agent import Agent
 
 load_dotenv()
 api_key       = os.getenv("GOOGLE_API_KEY")
@@ -104,7 +105,28 @@ async def on_ready():
                 break  # Only send to the first accessible text channel per guild
             except Exception:
                 continue
+            
+def get_user_permission_role(member_roles: list) -> str:
+    """
+    Determines the simplified permission role of a user based on their Discord roles.
 
+    Args:
+        member_roles (list): A list of discord.Role objects for the user.
+
+    Returns:
+        str: "administrator", "supervisor", "member", or "none".
+    """
+    user_discord_role_names = {role.name for role in member_roles}
+
+    if "Administrator" in user_discord_role_names:
+        return "administrator"
+    elif "Supervisor" in user_discord_role_names:
+        return "supervisor"
+    elif "Member" in user_discord_role_names:
+        return "member"
+    else:
+        return "none" # This is the key part for "non-member/supervisor/admin"
+    
 @client.event
 async def on_message(message):
     """
@@ -113,9 +135,10 @@ async def on_message(message):
     Parameters:
         message (discord.Message): The message object sent by a user.
     """
-    if message.author == client.user:
-        return
 
+    if message.author == client.user: #discord bot ignores its own messages
+        return
+    
     logging.info(f"📨 Message received — User: {message.author} (ID: {message.author.id})")
     logging.info(f"📨 Channel: {message.channel} (ID: {message.channel.id})")
     logging.info(f"💬 Content: {message.content}")
@@ -126,6 +149,13 @@ async def on_message(message):
     channel_id   = message.channel.id   #The unique ID of the channel where the message was sent.
     now = datetime.datetime.utcnow()
 
+    user_permission_role = get_user_permission_role(message.author.roles)
+    
+    if user_permission_role == "none":
+        # Log the unauthorized attempt, but DO NOT send a message to the channel
+        logging.warning(f"🚫 Silently ignoring unauthorized message from {message.author} (ID: {user_id}) in channel {message.channel} (ID: {channel_id}). Content: '{user_message}'")
+        return # Stop further processing for unauthorized users without sending a public message
+    
     # ---- Testing utilities ----------------------------------------------------------------------------------------------------------------
     if user_message.lower() == "test":
         """
@@ -229,25 +259,90 @@ async def on_message(message):
         """
         messages = HumanMessage(content=user_message)
 
-        chat_memory, config = memory_storage.local_memory.get_chat_memory()
-        response = agent_graph.invoke({
+        config = memory_storage.get_config(channel_id)
+
+        ### ROLE BASED ACCESS #####################################################################
+        if user_permission_role == "administrator":
+            # Call agent for admin
+            allowed_tools = ['query', 'summarize', 'summarize_by_time', 'search'] # Tools allowed for admin use
+            role_name = "admin_agent"
+            agent = Agent(role_name=role_name, allowed_tools=allowed_tools)
+            logging.info(f"User {user_name} (Admin) is using agent with tools: {allowed_tools}")
+
+            response = agent.invoke({
                 "current_channel": channel_id,
                 "current_user": user_id,
                 "messages": [messages],
         }, config)
+        elif user_permission_role == "supervisor":
+            # Call agent for supervisor
+            allowed_tools = ['query', 'summarize', 'summarize_by_time', 'search'] # Tools allowed for supervisor use
+            role_name = "supervisor_agent"
+            agent = Agent(role_name=role_name, allowed_tools=allowed_tools)
+            logging.info(f"User {user_name} (Supervisor) is using agent with tools: {allowed_tools}")
 
+            response = agent.invoke({
+                "current_channel": channel_id,
+                "current_user": user_id,
+                "messages": [messages]
+        }, config)
+            
+        elif user_permission_role == "member":
+            # Call agent for members
+            allowed_tools = ['summarize', 'summarize_by_time', 'search'] # Tools allowed for member use MEMBERS CANNOT QUERY
+            role_name = "member_agent"
+            agent = Agent(role_name=role_name, allowed_tools=allowed_tools)
+            logging.info(f"User {user_name} (Member) is using agent with tools: {allowed_tools}")
+
+            response = agent.invoke({
+                "current_channel": channel_id,
+                "current_user": user_id,
+                "messages": [messages]
+        }, config)
+        else:
+            # This case should ideally not be reached due to the initial 'none' check,
+            # but it's good practice to have a fallback or raise an error.
+            # For robustness, we'll assign a very limited set or log an unexpected state.
+            allowed_tools = [] # No tools if somehow this path is hit for an unauthorized user
+            logging.error(f"Unexpected: User {user_name} with role '{user_permission_role}' reached agent invocation. Assigning no tools.")
+
+        ##########################################################################################################################################
+        
         try:
             bot_reply = response["messages"][-1].content.strip()
-            memory_storage.add_message(channel_id, "Bot", bot_reply)
-            replies = split_response(bot_reply)
+            
+            formatted_reply = ""
+            if "TASK:" in bot_reply:
+                task_start = bot_reply.find("TASK:") + len("TASK:")
+                task_end = bot_reply.find("\n", task_start)
+                if task_end == -1:
+                    task_end = len(bot_reply)
+                formatted_reply = bot_reply[task_start:task_end].strip()
+            else:
+                formatted_reply = bot_reply
+            
+            print(response["messages"])
+
+            memory_storage.add_message(channel_id, "Bot", formatted_reply)
+            replies = split_response(formatted_reply)
             for reply in replies:
                 await message.channel.send(reply)
 
-            # ADD THIS: Handle chart image (BytesIO) if present
-            if "output_image" in response:
-                image_buffer = response["output_image"]
-                image_buffer.seek(0)
-                await message.channel.send(file=discord.File(fp=image_buffer, filename="chart.png"))
+            images = response.get("images", [])
+            if images:
+                logging.info(f"📸 Sending {len(images)} images in response to {user_name} in channel {channel_id}")
+                for filename, file_data in images:
+                    try:
+                        if isinstance(file_data, bytes):
+                            file_buffer = io.BytesIO(file_data)
+                        else:
+                            file_buffer = file_data
+                        discord_file = discord.File(file_buffer, filename=filename)
+                        await message.channel.send(file=discord_file)
+                        logging.info(f"✅ Image {filename} sent successfully.")
+                    except Exception as e:
+                        logging.error(f"❌ Failed to send image {filename}: {e}")
+                        await message.channel.send(f"❌ Error sending image {filename}")
         except Exception as e:
             await message.channel.send(f"❌ Error: {e}")
             return
