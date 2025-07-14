@@ -1,0 +1,28 @@
+2025-07-10 13:06:25,336 [WARNING] PyNaCl is not installed, voice will NOT be supported
+2025-07-10 13:06:25,337 [INFO] logging in using static token
+2025-07-10 13:06:26,016 [INFO] Shard ID None has connected to Gateway (Session ID: 336b545608caa1c8f5c7d2914707b221).
+2025-07-10 13:06:34,534 [INFO] 📨 Message received — User: 8ruhmomentum (ID: 485308464050995245)
+2025-07-10 13:06:34,534 [INFO] 📨 Channel: general (ID: 1384535346905092127)
+2025-07-10 13:06:34,534 [INFO] 💬 Content: ask: Can you summarize the last 3 days?
+2025-07-10 13:06:35,648 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:batchEmbedContents "HTTP/1.1 200 OK"
+2025-07-10 13:07:17,085 [INFO] 📨 Message received — User: 8ruhmomentum (ID: 485308464050995245)
+2025-07-10 13:07:17,086 [INFO] 📨 Channel: general (ID: 1384535346905092127)
+2025-07-10 13:07:17,086 [INFO] 💬 Content: ask: Can you find all employees for me?
+2025-07-10 13:07:30,024 [INFO] 📨 Message received — User: 8ruhmomentum (ID: 485308464050995245)
+2025-07-10 13:07:30,024 [INFO] 📨 Channel: general (ID: 1384535346905092127)
+2025-07-10 13:07:30,024 [INFO] 💬 Content: ask: Do you remember what I said about rubiks cubes?
+2025-07-10 13:07:31,502 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:batchEmbedContents "HTTP/1.1 200 OK"
+2025-07-10 13:07:31,872 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:batchEmbedContents "HTTP/1.1 200 OK"
+2025-07-10 13:07:35,740 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:batchEmbedContents "HTTP/1.1 200 OK"
+2025-07-10 13:07:37,339 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:batchEmbedContents "HTTP/1.1 200 OK"
+2025-07-10 13:09:15,826 [INFO] 📨 Message received — User: 8ruhmomentum (ID: 485308464050995245)
+2025-07-10 13:09:15,826 [INFO] 📨 Channel: general (ID: 1384535346905092127)
+2025-07-10 13:09:15,826 [INFO] 💬 Content: ask: Thank you
+2025-07-10 13:09:54,841 [INFO] 📨 Message received — User: 8ruhmomentum (ID: 485308464050995245)
+2025-07-10 13:09:54,842 [INFO] 📨 Channel: general (ID: 1384535346905092127)
+2025-07-10 13:09:54,842 [INFO] 💬 Content: ask: Sorry, I forgot again, who were the employees that started on 2022 with names starting with A?
+2025-07-10 13:09:56,485 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:batchEmbedContents "HTTP/1.1 200 OK"
+2025-07-10 13:09:56,780 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:batchEmbedContents "HTTP/1.1 200 OK"
+2025-07-10 13:10:12,395 [INFO] 📨 Message received — User: 8ruhmomentum (ID: 485308464050995245)
+2025-07-10 13:10:12,396 [INFO] 📨 Channel: general (ID: 1384535346905092127)
+2025-07-10 13:10:12,396 [INFO] 💬 Content: exit

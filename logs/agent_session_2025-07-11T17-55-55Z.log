@@ -1,0 +1,61 @@
+2025-07-11 12:55:55,144 [WARNING] PyNaCl is not installed, voice will NOT be supported
+2025-07-11 12:55:55,145 [INFO] logging in using static token
+2025-07-11 12:55:55,866 [INFO] Shard ID None has connected to Gateway (Session ID: e13a86aff38979438da60abf0a62f695).
+2025-07-11 12:56:00,476 [INFO] 📨 Message received — User: 8ruhmomentum (ID: 485308464050995245)
+2025-07-11 12:56:00,477 [INFO] 📨 Channel: general (ID: 1384535346905092127)
+2025-07-11 12:56:00,477 [INFO] 💬 Content: ask: Can you make a pie chart for the different roles of employees?
+2025-07-11 12:56:00,560 [INFO] User <@485308464050995245> (Admin) is using agent with tools: ['query', 'summarize', 'summarize_by_time', 'search']
+2025-07-11 12:56:01,530 [INFO] Task: The user wants to visualize the distribution of employee roles using a pie chart. I need to query the database to get the roles and their counts, and then use the query tool to generate a pie chart.
+Tool calls: [{'name': 'query', 'args': {'user_query': 'Show the count of employees for each role and visualize it as a pie chart.'}, 'id': 'ebc57796-5940-469b-bcd6-fa728afe79c6', 'type': 'tool_call'}]
+2025-07-11 12:56:02,662 [INFO] Response does not contain any tool calls.
+2025-07-11 12:56:02,663 [ERROR] Ignoring exception in on_message
+Traceback (most recent call last):
+  File "/home/justin/Infosys/discord_chatbot/.venv/lib/python3.12/site-packages/discord/client.py", line 481, in _run_event
+    await coro(*args, **kwargs)
+  File "/home/justin/Infosys/discord_chatbot/discord_bot.py", line 272, in on_message
+    response = agent.invoke({
+               ^^^^^^^^^^^^^^
+  File "/home/justin/Infosys/discord_chatbot/agent.py", line 113, in invoke
+    return self.graph.invoke(state, config)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/justin/Infosys/discord_chatbot/.venv/lib/python3.12/site-packages/langgraph/pregel/__init__.py", line 2719, in invoke
+    for chunk in self.stream(
+  File "/home/justin/Infosys/discord_chatbot/.venv/lib/python3.12/site-packages/langgraph/pregel/__init__.py", line 2368, in stream
+    with SyncPregelLoop(
+  File "/home/justin/Infosys/discord_chatbot/.venv/lib/python3.12/site-packages/langgraph/pregel/loop.py", line 1186, in __exit__
+    return self.stack.__exit__(exc_type, exc_value, traceback)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/contextlib.py", line 610, in __exit__
+    raise exc_details[1]
+  File "/usr/lib/python3.12/contextlib.py", line 595, in __exit__
+    if cb(*exc_details):
+       ^^^^^^^^^^^^^^^^
+  File "/home/justin/Infosys/discord_chatbot/.venv/lib/python3.12/site-packages/langgraph/pregel/executor.py", line 117, in __exit__
+    task.result()
+  File "/usr/lib/python3.12/concurrent/futures/_base.py", line 449, in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/concurrent/futures/_base.py", line 401, in __get_result
+    raise self._exception
+  File "/home/justin/Infosys/discord_chatbot/.venv/lib/python3.12/site-packages/langgraph/pregel/executor.py", line 80, in done
+    task.result()
+  File "/usr/lib/python3.12/concurrent/futures/_base.py", line 449, in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/concurrent/futures/_base.py", line 401, in __get_result
+    raise self._exception
+  File "/usr/lib/python3.12/concurrent/futures/thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/justin/Infosys/discord_chatbot/.venv/lib/python3.12/site-packages/langgraph/checkpoint/memory/__init__.py", line 403, in put_writes
+    self.serde.dumps_typed(v),
+    ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/justin/Infosys/discord_chatbot/.venv/lib/python3.12/site-packages/langgraph/checkpoint/serde/jsonplus.py", line 222, in dumps_typed
+    raise exc
+  File "/home/justin/Infosys/discord_chatbot/.venv/lib/python3.12/site-packages/langgraph/checkpoint/serde/jsonplus.py", line 216, in dumps_typed
+    return "msgpack", _msgpack_enc(obj)
+                      ^^^^^^^^^^^^^^^^^
+  File "/home/justin/Infosys/discord_chatbot/.venv/lib/python3.12/site-packages/langgraph/checkpoint/serde/jsonplus.py", line 676, in _msgpack_enc
+    return ormsgpack.packb(data, default=_msgpack_default, option=_option)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: Type is not msgpack serializable: _io.BytesIO

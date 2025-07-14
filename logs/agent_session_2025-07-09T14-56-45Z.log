@@ -1,0 +1,48 @@
+2025-07-09 09:56:45,955 [WARNING] PyNaCl is not installed, voice will NOT be supported
+2025-07-09 09:56:45,955 [INFO] logging in using static token
+2025-07-09 09:56:47,046 [INFO] Shard ID None has connected to Gateway (Session ID: 3c3d59615013601cfba1c896f52b9668).
+2025-07-09 09:56:59,671 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:batchEmbedContents "HTTP/1.1 200 OK"
+2025-07-09 09:56:59,705 [ERROR] Ignoring exception in on_message
+Traceback (most recent call last):
+  File "/home/justin/Infosys/discord_chatbot/.venv/lib/python3.12/site-packages/discord/client.py", line 481, in _run_event
+    await coro(*args, **kwargs)
+  File "/home/justin/Infosys/discord_chatbot/discord_bot.py", line 319, in on_message
+    response = agent_graph.invoke({
+               ^^^^^^^^^^^^^^^^^^^^
+  File "/home/justin/Infosys/discord_chatbot/.venv/lib/python3.12/site-packages/langgraph/pregel/__init__.py", line 2719, in invoke
+    for chunk in self.stream(
+  File "/home/justin/Infosys/discord_chatbot/.venv/lib/python3.12/site-packages/langgraph/pregel/__init__.py", line 2436, in stream
+    for _ in runner.tick(
+  File "/home/justin/Infosys/discord_chatbot/agent.py", line 321, in conductor
+    result = tool_map[name](args)
+             ^^^^^^^^^^^^^^^^^^^^
+  File "/home/justin/Infosys/discord_chatbot/.venv/lib/python3.12/site-packages/langchain_core/_api/deprecation.py", line 189, in warning_emitting_wrapper
+    return wrapped(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/justin/Infosys/discord_chatbot/.venv/lib/python3.12/site-packages/langchain_core/tools/base.py", line 1012, in __call__
+    return self.run(tool_input, callbacks=callbacks)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/justin/Infosys/discord_chatbot/.venv/lib/python3.12/site-packages/langchain_core/tools/base.py", line 882, in run
+    raise error_to_raise
+  File "/home/justin/Infosys/discord_chatbot/.venv/lib/python3.12/site-packages/langchain_core/tools/base.py", line 851, in run
+    response = context.run(self._run, *tool_args, **tool_kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/justin/Infosys/discord_chatbot/.venv/lib/python3.12/site-packages/langchain_core/tools/structured.py", line 93, in _run
+    return self.func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/justin/Infosys/discord_chatbot/agent.py", line 102, in summarize_by_time
+    local_memory.store_all_in_long_term_memory()
+  File "/home/justin/Infosys/discord_chatbot/local_memory.py", line 355, in store_all_in_long_term_memory
+    self.store_in_long_term_memory(channel_id)
+  File "/home/justin/Infosys/discord_chatbot/local_memory.py", line 340, in store_in_long_term_memory
+    remote_memory.add_documents(channel_id, documents)
+  File "/home/justin/Infosys/discord_chatbot/remote_memory.py", line 179, in add_documents
+    self._add_channel(channel_id)
+  File "/home/justin/Infosys/discord_chatbot/remote_memory.py", line 76, in _add_channel
+    self.cur.execute(check_query, (channel_id,))
+psycopg2.errors.UndefinedFunction: operator does not exist: text = bigint
+LINE 5:             WHERE channel_id = 1384535346905092127
+                                     ^
+HINT:  No operator matches the given name and argument types. You might need to add explicit type casts.
+
+During task with name 'conductor' and id 'd4136527-7023-6276-7cbe-c11cb3f5c023'

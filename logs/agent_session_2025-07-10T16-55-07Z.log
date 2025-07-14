@@ -1,0 +1,36 @@
+2025-07-10 11:55:07,597 [WARNING] PyNaCl is not installed, voice will NOT be supported
+2025-07-10 11:55:07,598 [INFO] logging in using static token
+2025-07-10 11:55:08,307 [INFO] Shard ID None has connected to Gateway (Session ID: df1fc1009019940c592faa868954ac72).
+2025-07-10 11:55:15,843 [INFO] 📨 Message received — User: 8ruhmomentum (ID: 485308464050995245)
+2025-07-10 11:55:15,843 [INFO] 📨 Channel: general (ID: 1384535346905092127)
+2025-07-10 11:55:15,843 [INFO] 💬 Content: ask: Show me all the employees
+2025-07-10 11:55:16,309 [ERROR] Ignoring exception in on_message
+Traceback (most recent call last):
+  File "/home/justin/Infosys/discord_chatbot/.venv/lib/python3.12/site-packages/discord/client.py", line 481, in _run_event
+    await coro(*args, **kwargs)
+  File "/home/justin/Infosys/discord_chatbot/discord_bot.py", line 239, in on_message
+    response = agent.invoke({
+               ^^^^^^^^^^^^^^
+  File "/home/justin/Infosys/discord_chatbot/agent.py", line 101, in invoke
+    return self.graph.invoke(state, config)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/justin/Infosys/discord_chatbot/.venv/lib/python3.12/site-packages/langgraph/pregel/__init__.py", line 2719, in invoke
+    for chunk in self.stream(
+  File "/home/justin/Infosys/discord_chatbot/.venv/lib/python3.12/site-packages/langgraph/pregel/__init__.py", line 2436, in stream
+    for _ in runner.tick(
+  File "/home/justin/Infosys/discord_chatbot/agent.py", line 279, in conductor
+    response = self.llm_with_tools.invoke(message)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/justin/Infosys/discord_chatbot/.venv/lib/python3.12/site-packages/langchain_core/runnables/base.py", line 5431, in invoke
+    return self.bound.invoke(
+           ^^^^^^^^^^^^^^^^^^
+  File "/home/justin/Infosys/discord_chatbot/.venv/lib/python3.12/site-packages/langchain_google_genai/chat_models.py", line 1255, in invoke
+    return super().invoke(input, config, stop=stop, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/justin/Infosys/discord_chatbot/.venv/lib/python3.12/site-packages/langchain_core/language_models/chat_models.py", line 373, in invoke
+    [self._convert_input(input)],
+     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/justin/Infosys/discord_chatbot/.venv/lib/python3.12/site-packages/langchain_core/language_models/chat_models.py", line 358, in _convert_input
+    raise ValueError(msg)
+ValueError: Invalid input type <class 'langchain_core.prompts.chat.ChatPromptTemplate'>. Must be a PromptValue, str, or list of BaseMessages.
+During task with name 'conductor' and id 'b0dc9c5e-9489-2e75-a192-c54c8e2ad857'

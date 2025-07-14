@@ -1,0 +1,10 @@
+2025-07-11 12:11:58,313 [WARNING] PyNaCl is not installed, voice will NOT be supported
+2025-07-11 12:11:58,314 [INFO] logging in using static token
+2025-07-11 12:11:59,522 [INFO] Shard ID None has connected to Gateway (Session ID: b85426bb583f611c177e73d5e6dfbfca).
+2025-07-11 12:12:03,206 [INFO] 📨 Message received — User: 8ruhmomentum (ID: 485308464050995245)
+2025-07-11 12:12:03,206 [INFO] 📨 Channel: general (ID: 1384535346905092127)
+2025-07-11 12:12:03,206 [INFO] 💬 Content: ask: Can you visualize the number of employees based on their year?
+2025-07-11 12:12:03,305 [INFO] User <@485308464050995245> (Admin) is using agent with tools: ['query', 'summarize', 'summarize_by_time', 'search']
+2025-07-11 12:12:04,302 [INFO] Task: Visualize the number of employees based on their year of joining.
+Tool calls: [{'name': 'query', 'args': {'user_query': 'Visualize the number of employees based on their year of joining', 'user_id': '485308464050995245'}, 'id': '81841c48-e5c7-46e2-af93-e9e5360631c0', 'type': 'tool_call'}]
+2025-07-11 12:12:04,629 [INFO] Response does not contain any tool calls.

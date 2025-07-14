@@ -1,0 +1,65 @@
+2025-07-09 16:06:13,142 [WARNING] PyNaCl is not installed, voice will NOT be supported
+2025-07-09 16:06:13,143 [INFO] logging in using static token
+2025-07-09 16:06:13,822 [INFO] Shard ID None has connected to Gateway (Session ID: 6473b89fffb36d41d8400b3b172c1d8e).
+2025-07-09 16:06:21,291 [INFO] 📨 Message received — User: 8ruhmomentum (ID: 485308464050995245)
+2025-07-09 16:06:21,291 [INFO] 📨 Channel: general (ID: 1384535346905092127)
+2025-07-09 16:06:21,291 [INFO] 💬 Content: ask: Hello bot!
+2025-07-09 16:06:21,294 [INFO] 🧭 Agent started — User: 485308464050995245, Channel: 1384535346905092127
+2025-07-09 16:06:21,295 [INFO] 🧾 Current messages: ['ask: Hello bot!']
+2025-07-09 16:06:21,702 [INFO] 🧠 Invoking LLM to generate plan with tools (if needed)...
+2025-07-09 16:06:22,728 [INFO] 💬 LLM plan generated: Hi there! How can I help you today?
+2025-07-09 16:06:22,729 [INFO] 📦 No tool calls planned. Final response will be generated directly.
+2025-07-09 16:06:31,122 [INFO] 📨 Message received — User: 8ruhmomentum (ID: 485308464050995245)
+2025-07-09 16:06:31,122 [INFO] 📨 Channel: general (ID: 1384535346905092127)
+2025-07-09 16:06:31,122 [INFO] 💬 Content: ask: Can you find all the employees that started after 2022?
+2025-07-09 16:06:31,124 [INFO] 🧭 Agent started — User: 485308464050995245, Channel: 1384535346905092127
+2025-07-09 16:06:31,124 [INFO] 🧾 Current messages: ['ask: Can you find all the employees that started after 2022?']
+2025-07-09 16:06:31,490 [INFO] 🧠 Invoking LLM to generate plan with tools (if needed)...
+2025-07-09 16:06:32,044 [INFO] 💬 LLM plan generated: 
+2025-07-09 16:06:32,044 [INFO] 📦 Tool calls planned: ['query']
+2025-07-09 16:06:32,705 [INFO] 🛠️ Tool Called: query
+            ⏰ Time: 2025-07-09T21-06-32Z
+            👤 User: 485308464050995245
+            💬 Channel: 1384535346905092127
+            🧾 Args: {'user_id': '485308464050995245', 'user_query': 'Find all employees that started after 2022'}
+            
+2025-07-09 16:06:32,706 [INFO] 🧠 Invoking LLM to synthesize final response from tool outputs...
+2025-07-09 16:06:33,173 [INFO] ✅ Final response generated successfully.
+2025-07-09 16:07:18,653 [INFO] 📨 Message received — User: 8ruhmomentum (ID: 485308464050995245)
+2025-07-09 16:07:18,653 [INFO] 📨 Channel: general (ID: 1384535346905092127)
+2025-07-09 16:07:18,653 [INFO] 💬 Content: ask: Can you search for rubiks cube in our conversation?
+2025-07-09 16:07:18,655 [INFO] 🧭 Agent started — User: 485308464050995245, Channel: 1384535346905092127
+2025-07-09 16:07:18,655 [INFO] 🧾 Current messages: ['ask: Can you search for rubiks cube in our conversation?']
+2025-07-09 16:07:18,973 [INFO] 🧠 Invoking LLM to generate plan with tools (if needed)...
+2025-07-09 16:07:19,289 [INFO] 💬 LLM plan generated: 
+2025-07-09 16:07:19,289 [INFO] 📦 Tool calls planned: ['search']
+2025-07-09 16:07:20,057 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:batchEmbedContents "HTTP/1.1 200 OK"
+2025-07-09 16:07:20,463 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:batchEmbedContents "HTTP/1.1 200 OK"
+2025-07-09 16:07:21,178 [INFO] 🛠️ Tool Called: search
+            ⏰ Time: 2025-07-09T21-07-21Z
+            👤 User: 485308464050995245
+            💬 Channel: 1384535346905092127
+            🧾 Args: {'channel_id': '1384535346905092127', 'query': 'rubiks cube'}
+            
+2025-07-09 16:07:21,179 [INFO] 🧠 Invoking LLM to synthesize final response from tool outputs...
+2025-07-09 16:07:21,589 [INFO] ✅ Final response generated successfully.
+2025-07-09 16:07:30,395 [INFO] 📨 Message received — User: 8ruhmomentum (ID: 485308464050995245)
+2025-07-09 16:07:30,395 [INFO] 📨 Channel: general (ID: 1384535346905092127)
+2025-07-09 16:07:30,395 [INFO] 💬 Content: ask: Can you summarize the last 2 days?
+2025-07-09 16:07:30,397 [INFO] 🧭 Agent started — User: 485308464050995245, Channel: 1384535346905092127
+2025-07-09 16:07:30,397 [INFO] 🧾 Current messages: ['ask: Can you summarize the last 2 days?']
+2025-07-09 16:07:30,684 [INFO] 🧠 Invoking LLM to generate plan with tools (if needed)...
+2025-07-09 16:07:31,008 [INFO] 💬 LLM plan generated: 
+2025-07-09 16:07:31,009 [INFO] 📦 Tool calls planned: ['summarize_by_time']
+2025-07-09 16:07:31,214 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:batchEmbedContents "HTTP/1.1 200 OK"
+2025-07-09 16:07:31,966 [INFO] 🛠️ Tool Called: summarize_by_time
+            ⏰ Time: 2025-07-09T21-07-31Z
+            👤 User: 485308464050995245
+            💬 Channel: 1384535346905092127
+            🧾 Args: {'rollback_time': 2.0, 'time_unit': 'days', 'channel_id': '1384535346905092127'}
+            
+2025-07-09 16:07:31,966 [INFO] 🧠 Invoking LLM to synthesize final response from tool outputs...
+2025-07-09 16:07:32,444 [INFO] ✅ Final response generated successfully.
+2025-07-09 16:07:41,864 [INFO] 📨 Message received — User: 8ruhmomentum (ID: 485308464050995245)
+2025-07-09 16:07:41,864 [INFO] 📨 Channel: general (ID: 1384535346905092127)
+2025-07-09 16:07:41,864 [INFO] 💬 Content: exit

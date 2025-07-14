@@ -1,0 +1,151 @@
+2025-07-10 12:54:41,937 [WARNING] PyNaCl is not installed, voice will NOT be supported
+2025-07-10 12:54:41,938 [INFO] logging in using static token
+2025-07-10 12:54:42,717 [INFO] Shard ID None has connected to Gateway (Session ID: f48d7b1200983bd2d868f2d0141fb9c5).
+2025-07-10 12:54:59,255 [INFO] 📨 Message received — User: 8ruhmomentum (ID: 485308464050995245)
+2025-07-10 12:54:59,255 [INFO] 📨 Channel: general (ID: 1384535346905092127)
+2025-07-10 12:54:59,255 [INFO] 💬 Content: ask: Can show me all employees in the employees table?
+2025-07-10 12:55:16,948 [INFO] 📨 Message received — User: 8ruhmomentum (ID: 485308464050995245)
+2025-07-10 12:55:16,949 [INFO] 📨 Channel: general (ID: 1384535346905092127)
+2025-07-10 12:55:16,949 [INFO] 💬 Content: ask: Ok, can you just show me the ones with names starting with A?
+2025-07-10 12:55:55,224 [INFO] 📨 Message received — User: 8ruhmomentum (ID: 485308464050995245)
+2025-07-10 12:55:55,224 [INFO] 📨 Channel: general (ID: 1384535346905092127)
+2025-07-10 12:55:55,224 [INFO] 💬 Content: ask: Ok, which one of these three started in 2022?
+2025-07-10 12:56:59,522 [INFO] 📨 Message received — User: 8ruhmomentum (ID: 485308464050995245)
+2025-07-10 12:56:59,522 [INFO] 📨 Channel: general (ID: 1384535346905092127)
+2025-07-10 12:56:59,522 [INFO] 💬 Content: ask: Can you summarize our current conversation?
+2025-07-10 12:57:34,932 [INFO] 📨 Message received — User: 8ruhmomentum (ID: 485308464050995245)
+2025-07-10 12:57:34,933 [INFO] 📨 Channel: general (ID: 1384535346905092127)
+2025-07-10 12:57:34,933 [INFO] 💬 Content: ask: Can you summarize the last 3 days?
+2025-07-10 12:57:36,392 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:batchEmbedContents "HTTP/1.1 200 OK"
+2025-07-10 12:57:49,317 [WARNING] Retrying langchain_google_genai.chat_models._chat_with_retry.<locals>._chat_with_retry in 2.0 seconds as it raised ResourceExhausted: 429 You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. [violations {
+  quota_metric: "generativelanguage.googleapis.com/generate_content_free_tier_requests"
+  quota_id: "GenerateRequestsPerMinutePerProjectPerModel-FreeTier"
+  quota_dimensions {
+    key: "model"
+    value: "gemini-2.5-flash-lite"
+  }
+  quota_dimensions {
+    key: "location"
+    value: "global"
+  }
+  quota_value: 15
+}
+, links {
+  description: "Learn more about Gemini API quotas"
+  url: "https://ai.google.dev/gemini-api/docs/rate-limits"
+}
+, retry_delay {
+  seconds: 10
+}
+].
+2025-07-10 12:57:51,391 [ERROR] Ignoring exception in on_message
+Traceback (most recent call last):
+  File "/home/justin/Infosys/discord_chatbot/.venv/lib/python3.12/site-packages/discord/client.py", line 481, in _run_event
+    await coro(*args, **kwargs)
+  File "/home/justin/Infosys/discord_chatbot/discord_bot.py", line 239, in on_message
+    response = agent.invoke({
+               ^^^^^^^^^^^^^^
+  File "/home/justin/Infosys/discord_chatbot/agent.py", line 102, in invoke
+    return self.graph.invoke(state, config)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/justin/Infosys/discord_chatbot/.venv/lib/python3.12/site-packages/langgraph/pregel/__init__.py", line 2719, in invoke
+    for chunk in self.stream(
+  File "/home/justin/Infosys/discord_chatbot/.venv/lib/python3.12/site-packages/langgraph/pregel/__init__.py", line 2436, in stream
+    for _ in runner.tick(
+  File "/home/justin/Infosys/discord_chatbot/agent.py", line 371, in generate_response
+    response = self.llm_with_tools.invoke([human_message])
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/justin/Infosys/discord_chatbot/.venv/lib/python3.12/site-packages/langchain_core/runnables/base.py", line 5431, in invoke
+    return self.bound.invoke(
+           ^^^^^^^^^^^^^^^^^^
+  File "/home/justin/Infosys/discord_chatbot/.venv/lib/python3.12/site-packages/langchain_google_genai/chat_models.py", line 1255, in invoke
+    return super().invoke(input, config, stop=stop, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/justin/Infosys/discord_chatbot/.venv/lib/python3.12/site-packages/langchain_core/language_models/chat_models.py", line 372, in invoke
+    self.generate_prompt(
+  File "/home/justin/Infosys/discord_chatbot/.venv/lib/python3.12/site-packages/langchain_core/language_models/chat_models.py", line 957, in generate_prompt
+    return self.generate(prompt_messages, stop=stop, callbacks=callbacks, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/justin/Infosys/discord_chatbot/.venv/lib/python3.12/site-packages/langchain_core/language_models/chat_models.py", line 776, in generate
+    self._generate_with_cache(
+  File "/home/justin/Infosys/discord_chatbot/.venv/lib/python3.12/site-packages/langchain_core/language_models/chat_models.py", line 1022, in _generate_with_cache
+    result = self._generate(
+             ^^^^^^^^^^^^^^^
+  File "/home/justin/Infosys/discord_chatbot/.venv/lib/python3.12/site-packages/langchain_google_genai/chat_models.py", line 1342, in _generate
+    response: GenerateContentResponse = _chat_with_retry(
+                                        ^^^^^^^^^^^^^^^^^
+  File "/home/justin/Infosys/discord_chatbot/.venv/lib/python3.12/site-packages/langchain_google_genai/chat_models.py", line 210, in _chat_with_retry
+    return _chat_with_retry(**kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/justin/Infosys/discord_chatbot/.venv/lib/python3.12/site-packages/tenacity/__init__.py", line 338, in wrapped_f
+    return copy(f, *args, **kw)
+           ^^^^^^^^^^^^^^^^^^^^
+  File "/home/justin/Infosys/discord_chatbot/.venv/lib/python3.12/site-packages/tenacity/__init__.py", line 477, in __call__
+    do = self.iter(retry_state=retry_state)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/justin/Infosys/discord_chatbot/.venv/lib/python3.12/site-packages/tenacity/__init__.py", line 378, in iter
+    result = action(retry_state)
+             ^^^^^^^^^^^^^^^^^^^
+  File "/home/justin/Infosys/discord_chatbot/.venv/lib/python3.12/site-packages/tenacity/__init__.py", line 420, in exc_check
+    raise retry_exc.reraise()
+          ^^^^^^^^^^^^^^^^^^^
+  File "/home/justin/Infosys/discord_chatbot/.venv/lib/python3.12/site-packages/tenacity/__init__.py", line 187, in reraise
+    raise self.last_attempt.result()
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/concurrent/futures/_base.py", line 449, in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/concurrent/futures/_base.py", line 401, in __get_result
+    raise self._exception
+  File "/home/justin/Infosys/discord_chatbot/.venv/lib/python3.12/site-packages/tenacity/__init__.py", line 480, in __call__
+    result = fn(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^
+  File "/home/justin/Infosys/discord_chatbot/.venv/lib/python3.12/site-packages/langchain_google_genai/chat_models.py", line 208, in _chat_with_retry
+    raise e
+  File "/home/justin/Infosys/discord_chatbot/.venv/lib/python3.12/site-packages/langchain_google_genai/chat_models.py", line 192, in _chat_with_retry
+    return generation_method(**kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/justin/Infosys/discord_chatbot/.venv/lib/python3.12/site-packages/google/ai/generativelanguage_v1beta/services/generative_service/client.py", line 868, in generate_content
+    response = rpc(
+               ^^^^
+  File "/home/justin/Infosys/discord_chatbot/.venv/lib/python3.12/site-packages/google/api_core/gapic_v1/method.py", line 131, in __call__
+    return wrapped_func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/justin/Infosys/discord_chatbot/.venv/lib/python3.12/site-packages/google/api_core/retry/retry_unary.py", line 294, in retry_wrapped_func
+    return retry_target(
+           ^^^^^^^^^^^^^
+  File "/home/justin/Infosys/discord_chatbot/.venv/lib/python3.12/site-packages/google/api_core/retry/retry_unary.py", line 156, in retry_target
+    next_sleep = _retry_error_helper(
+                 ^^^^^^^^^^^^^^^^^^^^
+  File "/home/justin/Infosys/discord_chatbot/.venv/lib/python3.12/site-packages/google/api_core/retry/retry_base.py", line 214, in _retry_error_helper
+    raise final_exc from source_exc
+  File "/home/justin/Infosys/discord_chatbot/.venv/lib/python3.12/site-packages/google/api_core/retry/retry_unary.py", line 147, in retry_target
+    result = target()
+             ^^^^^^^^
+  File "/home/justin/Infosys/discord_chatbot/.venv/lib/python3.12/site-packages/google/api_core/timeout.py", line 130, in func_with_timeout
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/justin/Infosys/discord_chatbot/.venv/lib/python3.12/site-packages/google/api_core/grpc_helpers.py", line 78, in error_remapped_callable
+    raise exceptions.from_grpc_error(exc) from exc
+google.api_core.exceptions.ResourceExhausted: 429 You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. [violations {
+  quota_metric: "generativelanguage.googleapis.com/generate_content_free_tier_requests"
+  quota_id: "GenerateRequestsPerMinutePerProjectPerModel-FreeTier"
+  quota_dimensions {
+    key: "model"
+    value: "gemini-2.5-flash-lite"
+  }
+  quota_dimensions {
+    key: "location"
+    value: "global"
+  }
+  quota_value: 15
+}
+, links {
+  description: "Learn more about Gemini API quotas"
+  url: "https://ai.google.dev/gemini-api/docs/rate-limits"
+}
+, retry_delay {
+  seconds: 8
+}
+]
+During task with name 'generate_response' and id '36e11d1f-50bf-558c-4d27-c13177b65b80'
