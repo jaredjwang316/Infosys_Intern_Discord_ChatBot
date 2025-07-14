@@ -1,0 +1,13 @@
+2025-07-11 12:08:54,798 [WARNING] PyNaCl is not installed, voice will NOT be supported
+2025-07-11 12:08:54,799 [INFO] logging in using static token
+2025-07-11 12:08:55,540 [INFO] Shard ID None has connected to Gateway (Session ID: 24e59122ed6724f5496b44366080ee4c).
+2025-07-11 12:09:11,111 [INFO] 📨 Message received — User: 8ruhmomentum (ID: 485308464050995245)
+2025-07-11 12:09:11,112 [INFO] 📨 Channel: general (ID: 1384535346905092127)
+2025-07-11 12:09:11,112 [INFO] 💬 Content: ask: Can you visualize the number of employees based on their year?
+2025-07-11 12:09:11,210 [INFO] User <@485308464050995245> (Admin) is using agent with tools: ['query', 'summarize', 'summarize_by_time', 'search']
+2025-07-11 12:09:12,240 [INFO] Task: 
+Tool calls: []
+2025-07-11 12:09:35,962 [INFO] 📨 Message received — User: 8ruhmomentum (ID: 485308464050995245)
+2025-07-11 12:09:35,962 [INFO] 📨 Channel: general (ID: 1384535346905092127)
+2025-07-11 12:09:35,962 [INFO] 💬 Content: exit
+2025-07-11 12:09:37,127 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:batchEmbedContents "HTTP/1.1 200 OK"

@@ -1,0 +1,9 @@
+2025-07-11 13:31:13,888 [WARNING] PyNaCl is not installed, voice will NOT be supported
+2025-07-11 13:31:13,889 [INFO] logging in using static token
+2025-07-11 13:31:14,796 [INFO] Shard ID None has connected to Gateway (Session ID: 0f376a1a3a698a0ff4b4d12835862f65).
+2025-07-11 13:31:20,396 [INFO] 📨 Message received — User: 8ruhmomentum (ID: 485308464050995245)
+2025-07-11 13:31:20,396 [INFO] 📨 Channel: general (ID: 1384535346905092127)
+2025-07-11 13:31:20,396 [INFO] 💬 Content: ask: Delete the employees table
+2025-07-11 13:31:20,487 [INFO] User <@485308464050995245> (Admin) is using agent with tools: ['query', 'summarize', 'summarize_by_time', 'search']
+2025-07-11 13:31:21,295 [INFO] Task: 
+Tool calls: []

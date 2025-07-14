@@ -1,0 +1,11 @@
+2025-07-10 12:48:22,579 [WARNING] PyNaCl is not installed, voice will NOT be supported
+2025-07-10 12:48:22,580 [INFO] logging in using static token
+2025-07-10 12:48:23,173 [INFO] Shard ID None has connected to Gateway (Session ID: 9ec5500ac48db46560b35d03d3a907a5).
+2025-07-10 12:48:29,431 [INFO] 📨 Message received — User: 8ruhmomentum (ID: 485308464050995245)
+2025-07-10 12:48:29,431 [INFO] 📨 Channel: general (ID: 1384535346905092127)
+2025-07-10 12:48:29,432 [INFO] 💬 Content: ask: Can you show me all employees?
+2025-07-10 12:48:55,242 [INFO] 📨 Message received — User: 8ruhmomentum (ID: 485308464050995245)
+2025-07-10 12:48:55,242 [INFO] 📨 Channel: general (ID: 1384535346905092127)
+2025-07-10 12:48:55,242 [INFO] 💬 Content: ask: Now can you just list their names?
+2025-07-10 12:48:57,284 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:batchEmbedContents "HTTP/1.1 200 OK"
+2025-07-10 12:48:57,611 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:batchEmbedContents "HTTP/1.1 200 OK"

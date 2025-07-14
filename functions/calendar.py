@@ -32,20 +32,20 @@ SCOPES = ['https://www.googleapis.com/auth/calendar.events']
 def get_event_details(event_details):
 
     prompt = f"""
-You are a helpful assistant extracting event details from natural language.
+    You are a helpful assistant extracting event details from natural language.
 
-From the following text, return ONLY a Python dictionary in this exact format:
-{{
-  "title": "Team Sync",
-  "start_dt": "2025-07-09T14:00:00",
-  "end_dt": "2025-07-09T14:30:00"
-}}
+    From the following text, return ONLY a Python dictionary in this exact format:
+    {{
+    "title": "Team Sync",
+    "start_dt": "2025-07-09T14:00:00",
+    "end_dt": "2025-07-09T14:30:00"
+    }}
 
-Use ISO 8601 strings for the times. Do not include code fences, markdown formatting, or any other text.
+    Use ISO 8601 strings for the times. Do not include code fences, markdown formatting, or any other text.
 
-### EVENT DETAILS ###
-{event_details}
-"""
+    ### EVENT DETAILS ###
+    {event_details}
+    """
 
     try:
         print("Calling Gemini model...")

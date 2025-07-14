@@ -12,3 +12,6 @@ faker
 pgvector
 matplotlib
 pybase64
+tzlocal
+google-auth-oauthlib
+google-api-python-client
