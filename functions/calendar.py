@@ -10,7 +10,10 @@ from langchain_core.messages import HumanMessage
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
+from email.mime.text import MIMEText
+import base64
 import datetime
+import time
 
 load_dotenv()
 api_key = os.getenv("GOOGLE_API_KEY")
@@ -25,8 +28,7 @@ model = ChatGoogleGenerativeAI(
     max_retries=2
 )
 
-SCOPES = ['https://www.googleapis.com/auth/calendar.events']
-
+SCOPES = ['https://www.googleapis.com/auth/calendar.events', 'https://www.googleapis.com/auth/gmail.send']
 
 
 def get_event_details(event_details):
@@ -95,19 +97,25 @@ def get_calendar_service():
     service = build('calendar', 'v3', credentials=creds)
     return service
 
-def create_gcal_event(event_dict):
+def create_gcal_event(event_dict, user_id):
     service = get_calendar_service()
 
     event = {
         'summary': event_dict['title'],
         'start': {'dateTime': event_dict['start_dt'].isoformat()},
-        'end': {'dateTime': event_dict['end_dt'].isoformat()}
+        'end': {'dateTime': event_dict['end_dt'].isoformat()},
+        'conferenceData': {
+            'createRequest': {
+                'requestId': f"{user_id}-{event_dict['title']}",
+                'conferenceSolutionKey': {'type': 'hangoutsMeet'}
+            }
+        }
     }
 
-    created_event = service.events().insert(calendarId='primary', body=event).execute()
+    created_event = service.events().insert(calendarId='primary', body=event, conferenceDataVersion=1).execute()
     event_id = created_event['id']
 
-    return created_event.get('htmlLink'), event_id
+    return created_event.get('hangoutLink'), event_id
 
 def edit_event_details(event_details, event_list):
 
