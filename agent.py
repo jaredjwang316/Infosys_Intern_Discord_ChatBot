@@ -29,7 +29,7 @@ from langgraph.prebuilt import ToolNode, tools_condition
 import logging
 import datetime
 import concurrent.futures
-
+import sensitivity_filter
 from functions.query import query_data
 from functions.summary import summarize_conversation, summarize_conversation_by_time
 from functions.search import search_conversation, search_conversation_quick
@@ -75,7 +75,6 @@ class Agent:
         self.role_name = role_name
         self.allowed_tools = allowed_tools
         self.tool_functions = [getattr(self, tool_name) for tool_name in allowed_tools if tool_name in allowed_tools]
-
         self._pending_images = []
 
         self.llm = ChatGoogleGenerativeAI(
@@ -218,7 +217,7 @@ class Agent:
             except concurrent.futures.TimeoutError:
                 print("Long search operation timed out, using only quick response instead.")
             except Exception as e:
-                print(f"Error during search operation: {e}")
+                print(f"Error during search operation: {sensitivity_filter(e)}")
 
             memory_storage.local_memory.clear_cached_history(channel_id)
 
