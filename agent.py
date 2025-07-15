@@ -18,7 +18,7 @@ Key Features:
 
 import os
 from typing import Annotated
-from typing_extensions import TypedDict
+from typing_extensions import TypedDict, Any
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -65,6 +65,7 @@ class State(TypedDict):
     task_description: str
     images: list[tuple[str, bytes]] | None
     loop_count: int
+    guild: Any
 
 class Agent:
     """

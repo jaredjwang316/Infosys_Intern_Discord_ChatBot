@@ -1,0 +1,36 @@
+2025-07-07 10:15:32,435 [WARNING] PyNaCl is not installed, voice will NOT be supported
+2025-07-07 10:15:32,435 [INFO] logging in using static token
+2025-07-07 10:15:33,036 [INFO] Shard ID None has connected to Gateway (Session ID: 870ff8d48c1809e5236370887f57d28c).
+2025-07-07 10:16:48,918 [INFO] 🛠️ Tool Executed: query
+            ⏰ Time: 2025-07-07T15-16-48Z
+            👤 User: 485308464050995245
+            💬 Channel: 1384535346905092127
+            🧾 Args: {'user_query': 'Can you find all the employees?', 'user_id': '485308464050995245'}
+            
+2025-07-07 10:16:54,172 [ERROR] Task exception was never retrieved
+future: <Task finished name='discord.py: on_message' coro=<Client._run_event() done, defined at /home/justin/Infosys/discord_chatbot/.venv/lib/python3.12/site-packages/discord/client.py:473> exception=SystemExit(None)>
+Traceback (most recent call last):
+  File "/home/justin/Infosys/discord_chatbot/discord_bot.py", line 336, in <module>
+    client.run(discord_token)
+  File "/home/justin/Infosys/discord_chatbot/.venv/lib/python3.12/site-packages/discord/client.py", line 906, in run
+    asyncio.run(runner())
+  File "/usr/lib/python3.12/asyncio/runners.py", line 194, in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 674, in run_until_complete
+    self.run_forever()
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 641, in run_forever
+    self._run_once()
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 1987, in _run_once
+    handle._run()
+  File "/usr/lib/python3.12/asyncio/events.py", line 88, in _run
+    self._context.run(self._callback, *self._args)
+  File "/home/justin/Infosys/discord_chatbot/.venv/lib/python3.12/site-packages/discord/client.py", line 481, in _run_event
+    await coro(*args, **kwargs)
+  File "/home/justin/Infosys/discord_chatbot/discord_bot.py", line 256, in on_message
+    exit()
+  File "<frozen _sitebuiltins>", line 26, in __call__
+SystemExit: None

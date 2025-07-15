@@ -1,0 +1,14 @@
+2025-07-11 13:33:40,429 [WARNING] PyNaCl is not installed, voice will NOT be supported
+2025-07-11 13:33:40,430 [INFO] logging in using static token
+2025-07-11 13:33:41,134 [INFO] Shard ID None has connected to Gateway (Session ID: 26cdf782594008d4661829a0fcdf67db).
+2025-07-11 13:33:46,320 [INFO] 📨 Message received — User: 8ruhmomentum (ID: 485308464050995245)
+2025-07-11 13:33:46,321 [INFO] 📨 Channel: general (ID: 1384535346905092127)
+2025-07-11 13:33:46,321 [INFO] 💬 Content: ask: Delete the employees table
+2025-07-11 13:33:46,403 [INFO] User <@485308464050995245> (Admin) is using agent with tools: ['query', 'summarize', 'summarize_by_time', 'search']
+2025-07-11 13:33:47,143 [INFO] Task: The user wants to delete the 'employees' table from the database. This is a database manipulation request. The `query` tool can be used to execute SQL commands.
+Tool calls: [{'name': 'query', 'args': {'user_query': 'DROP TABLE employees'}, 'id': '3ec2ced0-bb75-45e7-95bd-e2b0c8ab55e5', 'type': 'tool_call'}]
+2025-07-11 13:33:48,419 [INFO] Response does not contain any tool calls.
+2025-07-11 13:34:52,831 [INFO] 📨 Message received — User: 8ruhmomentum (ID: 485308464050995245)
+2025-07-11 13:34:52,831 [INFO] 📨 Channel: general (ID: 1384535346905092127)
+2025-07-11 13:34:52,831 [INFO] 💬 Content: exit
+2025-07-11 13:34:53,195 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:batchEmbedContents "HTTP/1.1 200 OK"

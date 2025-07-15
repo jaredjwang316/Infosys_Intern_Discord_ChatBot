@@ -1,0 +1,59 @@
+2025-07-09 15:53:40,263 [WARNING] PyNaCl is not installed, voice will NOT be supported
+2025-07-09 15:53:40,263 [INFO] logging in using static token
+2025-07-09 15:53:40,968 [INFO] Shard ID None has connected to Gateway (Session ID: d0eb8abd7b8d8f051dd502b636297e62).
+2025-07-09 15:53:54,709 [INFO] 🛠️ Tool Called: summarize
+            ⏰ Time: 2025-07-09T20-53-54Z
+            👤 User: 485308464050995245
+            💬 Channel: 1384535346905092127
+            🧾 Args: {'channel_id': '1384535346905092127'}
+            
+2025-07-09 15:54:04,812 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:batchEmbedContents "HTTP/1.1 200 OK"
+2025-07-09 15:54:05,668 [INFO] 🛠️ Tool Called: summarize_by_time
+            ⏰ Time: 2025-07-09T20-54-05Z
+            👤 User: 485308464050995245
+            💬 Channel: 1384535346905092127
+            🧾 Args: {'rollback_time': 2.0, 'channel_id': '1384535346905092127', 'time_unit': 'days'}
+            
+2025-07-09 15:54:33,655 [INFO] 🛠️ Tool Called: query
+            ⏰ Time: 2025-07-09T20-54-33Z
+            👤 User: 485308464050995245
+            💬 Channel: 1384535346905092127
+            🧾 Args: {'user_id': '485308464050995245', 'user_query': 'What do I like?'}
+            
+2025-07-09 15:56:28,339 [INFO] 🛠️ Tool Called: query
+            ⏰ Time: 2025-07-09T20-56-28Z
+            👤 User: 485308464050995245
+            💬 Channel: 1384535346905092127
+            🧾 Args: {'user_id': '485308464050995245', 'user_query': 'Do I like rubiks cubes?'}
+            
+2025-07-09 15:57:15,620 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:batchEmbedContents "HTTP/1.1 200 OK"
+2025-07-09 15:57:16,031 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:batchEmbedContents "HTTP/1.1 200 OK"
+2025-07-09 15:57:16,550 [INFO] 🛠️ Tool Called: search
+            ⏰ Time: 2025-07-09T20-57-16Z
+            👤 User: 485308464050995245
+            💬 Channel: 1384535346905092127
+            🧾 Args: {'query': 'greetings', 'channel_id': '1384535346905092127'}
+            
+2025-07-09 15:58:01,801 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:batchEmbedContents "HTTP/1.1 200 OK"
+2025-07-09 15:58:02,035 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:batchEmbedContents "HTTP/1.1 200 OK"
+2025-07-09 15:58:02,624 [INFO] 🛠️ Tool Called: search
+            ⏰ Time: 2025-07-09T20-58-02Z
+            👤 User: 485308464050995245
+            💬 Channel: 1384535346905092127
+            🧾 Args: {'query': 'rubiks cubes', 'channel_id': '1384535346905092127'}
+            
+2025-07-09 15:58:16,854 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:batchEmbedContents "HTTP/1.1 200 OK"
+2025-07-09 15:58:17,673 [INFO] 🛠️ Tool Called: summarize_by_time
+            ⏰ Time: 2025-07-09T20-58-17Z
+            👤 User: 485308464050995245
+            💬 Channel: 1384535346905092127
+            🧾 Args: {'rollback_time': 2.0, 'channel_id': '1384535346905092127', 'time_unit': 'days'}
+            
+2025-07-09 15:58:41,021 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:batchEmbedContents "HTTP/1.1 200 OK"
+2025-07-09 15:58:41,331 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:batchEmbedContents "HTTP/1.1 200 OK"
+2025-07-09 15:58:42,172 [INFO] 🛠️ Tool Called: search
+            ⏰ Time: 2025-07-09T20-58-42Z
+            👤 User: 485308464050995245
+            💬 Channel: 1384535346905092127
+            🧾 Args: {'query': 'rubiks cubes', 'channel_id': '1384535346905092127'}
+            

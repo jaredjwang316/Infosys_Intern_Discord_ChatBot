@@ -1,0 +1,27 @@
+2025-07-10 12:44:25,655 [WARNING] PyNaCl is not installed, voice will NOT be supported
+2025-07-10 12:44:25,656 [INFO] logging in using static token
+2025-07-10 12:44:26,540 [INFO] Shard ID None has connected to Gateway (Session ID: 01537b45ae6809777b53878b90a81058).
+2025-07-10 12:44:36,301 [INFO] 📨 Message received — User: 8ruhmomentum (ID: 485308464050995245)
+2025-07-10 12:44:36,301 [INFO] 📨 Channel: general (ID: 1384535346905092127)
+2025-07-10 12:44:36,301 [INFO] 💬 Content: ask: Can you list out all the employees?
+2025-07-10 12:44:38,254 [ERROR] Ignoring exception in on_message
+Traceback (most recent call last):
+  File "/home/justin/Infosys/discord_chatbot/.venv/lib/python3.12/site-packages/discord/client.py", line 481, in _run_event
+    await coro(*args, **kwargs)
+  File "/home/justin/Infosys/discord_chatbot/discord_bot.py", line 239, in on_message
+    response = agent.invoke({
+               ^^^^^^^^^^^^^^
+  File "/home/justin/Infosys/discord_chatbot/agent.py", line 102, in invoke
+    return self.graph.invoke(state, config)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/justin/Infosys/discord_chatbot/.venv/lib/python3.12/site-packages/langgraph/pregel/__init__.py", line 2719, in invoke
+    for chunk in self.stream(
+  File "/home/justin/Infosys/discord_chatbot/.venv/lib/python3.12/site-packages/langgraph/pregel/__init__.py", line 2436, in stream
+    for _ in runner.tick(
+  File "/home/justin/Infosys/discord_chatbot/agent.py", line 323, in generate_response
+    f"Tool '{msg.tool_name}' results: {msg.content}" for msg in tools_results
+             ^^^^^^^^^^^^^
+  File "/home/justin/Infosys/discord_chatbot/.venv/lib/python3.12/site-packages/pydantic/main.py", line 991, in __getattr__
+    raise AttributeError(f'{type(self).__name__!r} object has no attribute {item!r}')
+AttributeError: 'ToolMessage' object has no attribute 'tool_name'
+During task with name 'generate_response' and id '92aee551-0c59-5595-cbdf-abf2e2778bcd'

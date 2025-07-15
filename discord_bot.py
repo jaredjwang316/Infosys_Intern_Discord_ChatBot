@@ -31,6 +31,14 @@ import datetime
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 from memory_storage import memory_storage
 from agent import Agent
+import concurrent.futures
+import re
+
+from functions.query import *
+from functions.calendar import * 
+from functions.summary import summarize_conversation, summarize_conversation_by_time
+from functions.search import search_conversation, search_conversation_quick
+from local_memory import LocalMemory
 
 load_dotenv()
 api_key       = os.getenv("GOOGLE_API_KEY")
@@ -55,6 +63,12 @@ model = ChatGoogleGenerativeAI(
 intents = discord.Intents.default()
 intents.message_content = True
 client = discord.Client(intents=intents)
+
+# Memory: {user_id: [(role, message, timestamp)]}
+local_memory = LocalMemory()
+scheduled_events = []
+scheduled_gcal_events = []
+str_events = []
 
 def split_response(response, line_split=True):
     """
@@ -156,6 +170,129 @@ async def on_message(message):
         logging.warning(f"🚫 Silently ignoring unauthorized message from {message.author} (ID: {user_id}) in channel {message.channel} (ID: {channel_id}). Content: '{user_message}'")
         return # Stop further processing for unauthorized users without sending a public message
     
+    # ---- Calendar handler -----------------------------------------------------------------------------------------------------------------
+    if user_message.lower().startswith("event: "):
+        event_details = user_message[7:].strip()
+        guild = message.guild
+
+        event_action = cal_handler(event_details)
+
+        # CREATE EVENTS
+        if event_action.lower() == 'create':
+            try:
+                # event_dict: {'title': title, 'start_dt': start time, 'end_dt': end time}
+                event_dict = get_event_details(event_details)
+
+                # establish overwrite rules
+                overwrites = {guild.default_role: discord.PermissionOverwrite(connect=False)}
+                overwrites[message.author] = discord.PermissionOverwrite(connect=True)
+
+                for guest in message.mentions:
+                    if guest:
+                        overwrites[guest] = discord.PermissionOverwrite(connect=True)
+
+                # Create Discord event
+
+                voice_channel = await guild.create_voice_channel(
+                    name=event_dict['title'],
+                    overwrites=overwrites
+                )
+
+                discord_event = await guild.create_scheduled_event(
+                    name=event_dict['title'],
+                    start_time=event_dict['start_dt'],
+                    end_time=event_dict['end_dt'],
+                    entity_type=discord.EntityType.voice,
+                    channel=voice_channel,
+                    privacy_level=discord.PrivacyLevel.guild_only
+                )
+
+                await message.channel.send(f"✅ Scheduled event: {discord_event.name}")
+
+                # Create Google Calendar event
+                calendar_link, event_id = create_gcal_event(event_dict, user_id)
+
+                event_dict['gcal_link'] = calendar_link
+                event_dict['gcal_event_id'] = event_id
+
+                await message.channel.send(f"📅 Google Calendar event created: {calendar_link}")
+
+                # send invite DMs
+                for user in message.mentions:
+                    try:
+                        await user.send(f"You've been invited to **{event_dict['title']}** on {event_dict['start_dt']}.")
+                        await user.send(f"📅 You've been invited to **{event_dict['title']}**!\n"
+                                        f"🕒 When: {event_dict['start_dt']} to {event_dict['end_dt']}\n"
+                                        f"🔗 Add it to your calendar: {calendar_link}")
+                    except discord.Forbidden:
+                        print(f"❌ Can't DM {user.name}")
+                
+                # add events to full list (local memory)
+                scheduled_events.append(event_dict)
+                str_events.append(str(event_dict))
+            
+            except Exception as e:
+                await message.channel.send(f"❌ Failed to create event: {e}")
+        
+        # EDIT EVENTS
+        elif event_action.lower() == 'edit':
+            try:
+                updated_event_dict = edit_event_details(event_details, str_events)
+
+                # edit discord
+                updated_event = discord.utils.get(guild.scheduled_events, name=updated_event_dict['title'])
+                
+                await updated_event.edit(
+                    name=updated_event_dict['title'],
+                    start_time=updated_event_dict['start_dt'],
+                    end_time=updated_event_dict['end_dt']
+                )
+
+                # edit gcal
+                edit_gcal_event(updated_event_dict)
+
+                await message.channel.send(f"✅ UPDATE - Scheduled event: {updated_event.name}")
+                
+                # send update DMs
+                for user in message.mentions:
+                    try:
+                        await user.send(f"The following event has been updated: **{updated_event_dict['title']}** on {updated_event_dict['start_dt']}.")
+                    except discord.Forbidden:
+                        print(f"❌ Can't DM {user.name}")
+
+            except Exception as e:
+                await message.channel.send(f"❌ Failed to edit event: {e}")
+        
+        # DELETE EVENTS
+        elif event_action.lower() == 'delete':
+            try:
+                deleted_event_dict = delete_event_details(event_details, str_events)
+                deleted_event = discord.utils.get(guild.scheduled_events, name=deleted_event_dict['title'])
+                
+                if deleted_event:
+                    await deleted_event.delete()
+
+                    vc_channel = discord.utils.get(guild.voice_channels, name=deleted_event.name)
+                    await vc_channel.delete()
+
+                    await message.channel.send(f"🗑️ Event '{deleted_event.name}' has been deleted.")
+
+                    delete_gcal_event(deleted_event_dict['gcal_event_id'])
+
+                    for user in message.mentions:
+                        try:
+                            await user.send(f"The following event has been deleted: **{deleted_event_dict['title']}** on {deleted_event_dict['start_dt']}.")
+                        except discord.Forbidden:
+                            print(f"❌ Can't DM {user.name}")
+
+                else:
+                    await message.channel.send(f"❌ No matching scheduled event found.")
+
+            except Exception as e:
+                await message.channel.send(f"❌ Failed to edit event: {e}")
+
+
+
     # ---- Testing utilities ----------------------------------------------------------------------------------------------------------------
     if user_message.lower() == "test":
         """
@@ -258,8 +395,7 @@ async def on_message(message):
         Expected input: `ask: <your message>`
         """
         messages = HumanMessage(content=user_message)
-
-        config = memory_storage.get_config(channel_id)
+        guild = message.guild
 
         ### ROLE BASED ACCESS #####################################################################
         if user_permission_role == "administrator":
@@ -272,8 +408,9 @@ async def on_message(message):
             response = agent.invoke({
                 "current_channel": channel_id,
                 "current_user": user_id,
-                "messages": [messages]
-        }, config)
+                "messages": [messages],
+                "guild": guild
+        })
         elif user_permission_role == "supervisor":
             # Call agent for supervisor
             allowed_tools = ['query', 'summarize', 'summarize_by_time', 'search'] # Tools allowed for supervisor use
@@ -284,8 +421,9 @@ async def on_message(message):
             response = agent.invoke({
                 "current_channel": channel_id,
                 "current_user": user_id,
-                "messages": [messages]
-        }, config)
+                "messages": [messages],
+                "guild": guild
+        })
             
         elif user_permission_role == "member":
             # Call agent for members
@@ -297,8 +435,9 @@ async def on_message(message):
             response = agent.invoke({
                 "current_channel": channel_id,
                 "current_user": user_id,
-                "messages": [messages]
-        }, config)
+                "messages": [messages],
+                "guild": guild
+        })
         else:
             # This case should ideally not be reached due to the initial 'none' check,
             # but it's good practice to have a fallback or raise an error.

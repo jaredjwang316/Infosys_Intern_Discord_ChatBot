@@ -17,3 +17,6 @@ pybase64
 langgraph
 langsmith
 langchain[google-genai]
+tzlocal
+google-auth-oauthlib
+google-api-python-client

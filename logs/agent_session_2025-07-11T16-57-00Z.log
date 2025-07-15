@@ -1,0 +1,11 @@
+2025-07-11 11:57:00,905 [WARNING] PyNaCl is not installed, voice will NOT be supported
+2025-07-11 11:57:00,906 [INFO] logging in using static token
+2025-07-11 11:57:01,697 [INFO] Shard ID None has connected to Gateway (Session ID: 42c741428befeb3d98a7da88d3ff88b2).
+2025-07-11 11:57:20,871 [INFO] 📨 Message received — User: 8ruhmomentum (ID: 485308464050995245)
+2025-07-11 11:57:20,871 [INFO] 📨 Channel: general (ID: 1384535346905092127)
+2025-07-11 11:57:20,872 [INFO] 💬 Content: ask: Can you visualize the number of employees based on their year?
+2025-07-11 11:57:20,872 [WARNING] 🚫 Silently ignoring unauthorized message from 8ruhmomentum (ID: 485308464050995245) in channel general (ID: 1384535346905092127). Content: 'ask: Can you visualize the number of employees based on their year?'
+2025-07-11 12:04:41,992 [INFO] 📨 Message received — User: 8ruhmomentum (ID: 485308464050995245)
+2025-07-11 12:04:41,992 [INFO] 📨 Channel: general (ID: 1384535346905092127)
+2025-07-11 12:04:41,992 [INFO] 💬 Content: exit
+2025-07-11 12:04:41,992 [WARNING] 🚫 Silently ignoring unauthorized message from 8ruhmomentum (ID: 485308464050995245) in channel general (ID: 1384535346905092127). Content: 'exit'

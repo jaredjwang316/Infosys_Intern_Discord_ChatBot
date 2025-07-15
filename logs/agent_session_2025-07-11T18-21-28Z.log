@@ -1,0 +1,49 @@
+2025-07-11 13:21:28,942 [WARNING] PyNaCl is not installed, voice will NOT be supported
+2025-07-11 13:21:28,943 [INFO] logging in using static token
+2025-07-11 13:21:31,203 [INFO] Shard ID None has connected to Gateway (Session ID: c89dd6f466a7d78b5dc41a669c49c3ec).
+2025-07-11 13:21:35,829 [INFO] 📨 Message received — User: 8ruhmomentum (ID: 485308464050995245)
+2025-07-11 13:21:35,829 [INFO] 📨 Channel: general (ID: 1384535346905092127)
+2025-07-11 13:21:35,829 [INFO] 💬 Content: ask: Can you summarize the last day?
+2025-07-11 13:21:35,916 [INFO] User <@485308464050995245> (Admin) is using agent with tools: ['query', 'summarize', 'summarize_by_time', 'search']
+2025-07-11 13:21:36,675 [INFO] Task: Summarize the conversation history from the last day.
+Tool calls: [{'name': 'summarize_by_time', 'args': {'rollback_time': 1.0, 'time_unit': 'days', 'channel_id': '1384535346905092127'}, 'id': 'f4ea6ec2-6870-45eb-ab87-8b4aed66a59e', 'type': 'tool_call'}]
+2025-07-11 13:21:36,859 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:batchEmbedContents "HTTP/1.1 200 OK"
+2025-07-11 13:21:38,521 [INFO] Response does not contain any tool calls.
+2025-07-11 13:28:33,051 [INFO] 📨 Message received — User: 8ruhmomentum (ID: 485308464050995245)
+2025-07-11 13:28:33,051 [INFO] 📨 Channel: general (ID: 1384535346905092127)
+2025-07-11 13:28:33,051 [INFO] 💬 Content: ask: Can you summarize the last 2 days?
+2025-07-11 13:28:33,130 [INFO] User <@485308464050995245> (Admin) is using agent with tools: ['query', 'summarize', 'summarize_by_time', 'search']
+2025-07-11 13:28:34,063 [INFO] Task: Summarize the conversation history for the last 2 days to provide a concise overview of the discussions that took place within that timeframe.
+Tool calls: [{'name': 'summarize_by_time', 'args': {'channel_id': '1384535346905092127', 'time_unit': 'days', 'rollback_time': 2.0}, 'id': '859d4f34-2b72-4b57-9e16-385bf4e84fa2', 'type': 'tool_call'}]
+2025-07-11 13:28:34,248 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:batchEmbedContents "HTTP/1.1 200 OK"
+2025-07-11 13:28:36,430 [INFO] Response does not contain any tool calls.
+2025-07-11 13:29:40,114 [INFO] 📨 Message received — User: 8ruhmomentum (ID: 485308464050995245)
+2025-07-11 13:29:40,114 [INFO] 📨 Channel: general (ID: 1384535346905092127)
+2025-07-11 13:29:40,114 [INFO] 💬 Content: ask: Can you search for rubiks cube?
+2025-07-11 13:29:40,211 [INFO] User <@485308464050995245> (Admin) is using agent with tools: ['query', 'summarize', 'summarize_by_time', 'search']
+2025-07-11 13:29:41,015 [INFO] Task: Search for mentions of "rubik's cube" in the conversation history.
+Tool calls: [{'name': 'search', 'args': {'channel_id': '1384535346905092127', 'query': 'rubiks cube'}, 'id': 'ac63fd5f-0dfc-4490-bdff-9770f9f2dd41', 'type': 'tool_call'}]
+2025-07-11 13:29:41,650 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:batchEmbedContents "HTTP/1.1 200 OK"
+2025-07-11 13:29:41,930 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:batchEmbedContents "HTTP/1.1 200 OK"
+2025-07-11 13:29:42,929 [INFO] Response does not contain any tool calls.
+2025-07-11 13:29:56,464 [INFO] Shard ID None has successfully RESUMED session c89dd6f466a7d78b5dc41a669c49c3ec.
+2025-07-11 13:29:59,332 [INFO] 📨 Message received — User: 8ruhmomentum (ID: 485308464050995245)
+2025-07-11 13:29:59,332 [INFO] 📨 Channel: general (ID: 1384535346905092127)
+2025-07-11 13:29:59,332 [INFO] 💬 Content: ask: Can you be more specific on what we said about rubiks cubes?
+2025-07-11 13:29:59,428 [INFO] User <@485308464050995245> (Admin) is using agent with tools: ['query', 'summarize', 'summarize_by_time', 'search']
+2025-07-11 13:30:00,200 [INFO] Task: Search the conversation history for specific details about discussions related to "Rubik's Cubes", including what was said by the user and any actions or requests made concerning them.
+Tool calls: [{'name': 'search', 'args': {'channel_id': '1384535346905092127', 'query': 'rubiks cube'}, 'id': 'c45bb5af-afe4-4375-b9bb-abed1ee1bc7e', 'type': 'tool_call'}]
+2025-07-11 13:30:00,848 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:batchEmbedContents "HTTP/1.1 200 OK"
+2025-07-11 13:30:01,111 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:batchEmbedContents "HTTP/1.1 200 OK"
+2025-07-11 13:30:02,048 [INFO] Response does not contain any tool calls.
+2025-07-11 13:30:35,243 [INFO] 📨 Message received — User: 8ruhmomentum (ID: 485308464050995245)
+2025-07-11 13:30:35,243 [INFO] 📨 Channel: general (ID: 1384535346905092127)
+2025-07-11 13:30:35,243 [INFO] 💬 Content: ask: Can you summarize the last 3 days?
+2025-07-11 13:30:35,321 [INFO] User <@485308464050995245> (Admin) is using agent with tools: ['query', 'summarize', 'summarize_by_time', 'search']
+2025-07-11 13:30:36,118 [INFO] Task: Summarize the conversation history for the last 3 days to provide an overview of the discussions that took place.
+Tool calls: [{'name': 'summarize_by_time', 'args': {'rollback_time': 3.0, 'time_unit': 'days', 'channel_id': '1384535346905092127'}, 'id': 'e58b4bb4-3862-44cd-aec2-cba715e9f05e', 'type': 'tool_call'}]
+2025-07-11 13:30:36,301 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:batchEmbedContents "HTTP/1.1 200 OK"
+2025-07-11 13:30:38,281 [INFO] Response does not contain any tool calls.
+2025-07-11 13:30:42,860 [INFO] 📨 Message received — User: 8ruhmomentum (ID: 485308464050995245)
+2025-07-11 13:30:42,861 [INFO] 📨 Channel: general (ID: 1384535346905092127)
+2025-07-11 13:30:42,861 [INFO] 💬 Content: exit

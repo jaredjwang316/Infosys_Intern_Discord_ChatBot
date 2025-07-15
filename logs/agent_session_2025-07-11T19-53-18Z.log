@@ -1,0 +1,14 @@
+2025-07-11 14:53:18,597 [WARNING] PyNaCl is not installed, voice will NOT be supported
+2025-07-11 14:53:18,598 [INFO] logging in using static token
+2025-07-11 14:53:19,229 [INFO] Shard ID None has connected to Gateway (Session ID: 41189bb05d483e7f269b975a8cc2a982).
+2025-07-11 14:53:32,122 [INFO] 📨 Message received — User: kvle_ (ID: 458754358004416524)
+2025-07-11 14:53:32,123 [INFO] 📨 Channel: general (ID: 1384535346905092127)
+2025-07-11 14:53:32,123 [INFO] 💬 Content: ask: show me all employees
+2025-07-11 14:53:32,216 [INFO] User <@458754358004416524> (Member) is using agent with tools: ['query', 'summarize', 'summarize_by_time', 'search']
+2025-07-11 14:53:33,088 [INFO] Task: The user is asking to see all employees. This is a request for data from the database, so I should use the `query` tool.
+Tool calls: [{'name': 'query', 'args': {'user_query': 'show me all employees'}, 'id': 'f8a07066-0d57-491f-9ece-cba7a6457837', 'type': 'tool_call'}]
+2025-07-11 14:53:35,230 [INFO] Response does not contain any tool calls.
+2025-07-11 14:54:03,004 [INFO] 📨 Message received — User: 8ruhmomentum (ID: 485308464050995245)
+2025-07-11 14:54:03,005 [INFO] 📨 Channel: general (ID: 1384535346905092127)
+2025-07-11 14:54:03,005 [INFO] 💬 Content: exit
+2025-07-11 14:54:03,546 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:batchEmbedContents "HTTP/1.1 200 OK"
