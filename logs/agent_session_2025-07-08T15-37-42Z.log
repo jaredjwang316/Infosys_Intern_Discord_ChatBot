@@ -1,0 +1,100 @@
+2025-07-08 10:37:42,184 [WARNING] PyNaCl is not installed, voice will NOT be supported
+2025-07-08 10:37:42,184 [INFO] logging in using static token
+2025-07-08 10:37:43,083 [INFO] Shard ID None has connected to Gateway (Session ID: 73cd6053738c1fe51c86acb8f5649af4).
+2025-07-08 10:37:48,326 [INFO] 📨 Message received — User: jared_wang_csce121ugta (ID: 667711810140373025)
+2025-07-08 10:37:48,326 [INFO] 📨 Channel: general (ID: 1384276333047320640)
+2025-07-08 10:37:48,326 [INFO] 💬 Content: help
+2025-07-08 10:37:54,976 [INFO] 📨 Message received — User: jared_wang_csce121ugta (ID: 667711810140373025)
+2025-07-08 10:37:54,976 [INFO] 📨 Channel: general (ID: 1384276333047320640)
+2025-07-08 10:37:54,980 [INFO] 💬 Content: ask: list the employees
+2025-07-08 10:37:54,983 [INFO] 🧭 Agent started — User: 667711810140373025, Channel: 1384276333047320640
+2025-07-08 10:37:54,983 [INFO] 🧾 Current messages: ['ask: list the employees']
+2025-07-08 10:37:55,476 [INFO] 🧠 Invoking LLM to generate plan with tools (if needed)...
+2025-07-08 10:37:56,424 [INFO] 💬 LLM plan generated: 
+2025-07-08 10:37:56,424 [INFO] 📦 Tool calls planned: ['query']
+2025-07-08 10:37:57,041 [INFO] 🛠️ Tool Executed: query
+            ⏰ Time: 2025-07-08T15-37-57Z
+            👤 User: 667711810140373025
+            💬 Channel: 1384276333047320640
+            🧾 Args: {'user_id': '667711810140373025', 'user_query': 'list the employees'}
+            
+2025-07-08 10:37:57,041 [INFO] 🧠 Invoking LLM to synthesize final response from tool outputs...
+2025-07-08 10:37:59,907 [INFO] ✅ Final response generated successfully.
+2025-07-08 10:38:16,325 [INFO] 📨 Message received — User: jared_wang_csce121ugta (ID: 667711810140373025)
+2025-07-08 10:38:16,326 [INFO] 📨 Channel: general (ID: 1384276333047320640)
+2025-07-08 10:38:16,326 [INFO] 💬 Content: ask: great.  now identify those whose role is DevOps
+2025-07-08 10:38:16,329 [INFO] 🧭 Agent started — User: 667711810140373025, Channel: 1384276333047320640
+2025-07-08 10:38:16,329 [INFO] 🧾 Current messages: ['ask: great.  now identify those whose role is DevOps']
+2025-07-08 10:38:16,652 [INFO] 🧠 Invoking LLM to generate plan with tools (if needed)...
+2025-07-08 10:38:17,638 [INFO] 💬 LLM plan generated: 
+2025-07-08 10:38:17,638 [INFO] 📦 Tool calls planned: ['query']
+2025-07-08 10:38:18,233 [INFO] 🛠️ Tool Executed: query
+            ⏰ Time: 2025-07-08T15-38-18Z
+            👤 User: 667711810140373025
+            💬 Channel: 1384276333047320640
+            🧾 Args: {'user_id': '667711810140373025', 'user_query': 'identify those whose role is DevOps'}
+            
+2025-07-08 10:38:18,233 [INFO] 🧠 Invoking LLM to synthesize final response from tool outputs...
+2025-07-08 10:38:19,125 [INFO] ✅ Final response generated successfully.
+2025-07-08 10:38:55,869 [INFO] 📨 Message received — User: jared_wang_csce121ugta (ID: 667711810140373025)
+2025-07-08 10:38:55,869 [INFO] 📨 Channel: general (ID: 1384276333047320640)
+2025-07-08 10:38:55,869 [INFO] 💬 Content: ask: can you summarize our conversation?
+2025-07-08 10:38:55,872 [INFO] 🧭 Agent started — User: 667711810140373025, Channel: 1384276333047320640
+2025-07-08 10:38:55,872 [INFO] 🧾 Current messages: ['ask: can you summarize our conversation?']
+2025-07-08 10:38:56,241 [INFO] 🧠 Invoking LLM to generate plan with tools (if needed)...
+2025-07-08 10:38:57,070 [INFO] 💬 LLM plan generated: 
+2025-07-08 10:38:57,070 [INFO] 📦 Tool calls planned: ['summarize']
+2025-07-08 10:38:59,748 [INFO] 🛠️ Tool Executed: summarize
+            ⏰ Time: 2025-07-08T15-38-59Z
+            👤 User: 667711810140373025
+            💬 Channel: 1384276333047320640
+            🧾 Args: {'channel_id': '1384276333047320640'}
+            
+2025-07-08 10:38:59,748 [INFO] 🧠 Invoking LLM to synthesize final response from tool outputs...
+2025-07-08 10:39:01,339 [INFO] ✅ Final response generated successfully.
+2025-07-08 10:39:22,371 [INFO] 📨 Message received — User: jared_wang_csce121ugta (ID: 667711810140373025)
+2025-07-08 10:39:22,371 [INFO] 📨 Channel: general (ID: 1384276333047320640)
+2025-07-08 10:39:22,371 [INFO] 💬 Content: ask: is bean burrito with steak at taco bell healthy or junk food?
+2025-07-08 10:39:22,371 [INFO] 🧭 Agent started — User: 667711810140373025, Channel: 1384276333047320640
+2025-07-08 10:39:22,371 [INFO] 🧾 Current messages: ['ask: is bean burrito with steak at taco bell healthy or junk food?']
+2025-07-08 10:39:22,797 [INFO] 🧠 Invoking LLM to generate plan with tools (if needed)...
+2025-07-08 10:39:23,809 [INFO] 💬 LLM plan generated: That would be considered junk food. While beans can be healthy, a bean burrito with steak from Taco Bell is likely high in sodium, unhealthy fats, and calories, making it a less healthy option.
+2025-07-08 10:39:23,809 [INFO] 📦 No tool calls planned. Final response will be generated directly.
+2025-07-08 10:39:35,436 [INFO] 📨 Message received — User: jared_wang_csce121ugta (ID: 667711810140373025)
+2025-07-08 10:39:35,437 [INFO] 📨 Channel: general (ID: 1384276333047320640)
+2025-07-08 10:39:35,437 [INFO] 💬 Content: ask: can you sum up our talk?
+2025-07-08 10:39:35,441 [INFO] 🧭 Agent started — User: 667711810140373025, Channel: 1384276333047320640
+2025-07-08 10:39:35,441 [INFO] 🧾 Current messages: ['ask: can you sum up our talk?']
+2025-07-08 10:39:35,750 [INFO] 🧠 Invoking LLM to generate plan with tools (if needed)...
+2025-07-08 10:39:36,620 [INFO] 💬 LLM plan generated: 
+2025-07-08 10:39:36,620 [INFO] 📦 Tool calls planned: ['summarize']
+2025-07-08 10:39:39,134 [INFO] 🛠️ Tool Executed: summarize
+            ⏰ Time: 2025-07-08T15-39-39Z
+            👤 User: 667711810140373025
+            💬 Channel: 1384276333047320640
+            🧾 Args: {'channel_id': '1384276333047320640'}
+            
+2025-07-08 10:39:39,134 [INFO] 🧠 Invoking LLM to synthesize final response from tool outputs...
+2025-07-08 10:39:40,801 [INFO] ✅ Final response generated successfully.
+2025-07-08 10:40:04,906 [INFO] 📨 Message received — User: jared_wang_csce121ugta (ID: 667711810140373025)
+2025-07-08 10:40:04,908 [INFO] 📨 Channel: general (ID: 1384276333047320640)
+2025-07-08 10:40:04,908 [INFO] 💬 Content: ask: search for restaurants
+2025-07-08 10:40:04,909 [INFO] 🧭 Agent started — User: 667711810140373025, Channel: 1384276333047320640
+2025-07-08 10:40:04,909 [INFO] 🧾 Current messages: ['ask: search for restaurants']
+2025-07-08 10:40:05,406 [INFO] 🧠 Invoking LLM to generate plan with tools (if needed)...
+2025-07-08 10:40:06,422 [INFO] 💬 LLM plan generated: 
+2025-07-08 10:40:06,423 [INFO] 📦 Tool calls planned: ['search']
+2025-07-08 10:40:21,778 [INFO] 🛠️ Tool Executed: search
+            ⏰ Time: 2025-07-08T15-40-21Z
+            👤 User: 667711810140373025
+            💬 Channel: 1384276333047320640
+            🧾 Args: {'query': 'restaurants', 'channel_id': '1384276333047320640'}
+            
+2025-07-08 10:40:21,779 [INFO] 🧠 Invoking LLM to synthesize final response from tool outputs...
+2025-07-08 10:40:22,909 [INFO] ✅ Final response generated successfully.
+2025-07-08 10:40:42,098 [INFO] 📨 Message received — User: jared_wang_csce121ugta (ID: 667711810140373025)
+2025-07-08 10:40:42,099 [INFO] 📨 Channel: general (ID: 1384276333047320640)
+2025-07-08 10:40:42,099 [INFO] 💬 Content: clear
+2025-07-08 10:40:45,430 [INFO] 📨 Message received — User: jared_wang_csce121ugta (ID: 667711810140373025)
+2025-07-08 10:40:45,431 [INFO] 📨 Channel: general (ID: 1384276333047320640)
+2025-07-08 10:40:45,431 [INFO] 💬 Content: exit

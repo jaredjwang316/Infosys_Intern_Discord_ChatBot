@@ -1,4 +1,36 @@
-#!/usr/bin/env python3
+"""
+setup_database.py
+
+Purpose:
+--------
+This script sets up and populates a PostgreSQL test database with realistic-looking sample data using the Faker library.
+The database is designed to support and test natural language to SQL query translation functionality in the bot.
+
+Key Use Case:
+-------------
+The bot takes plain English user queries, translates them into SQL commands,
+and returns meaningful results. This seeded database serves as a testbed for validating that functionality.
+
+Main Features:
+--------------
+- Transforms MySQL schema syntax into PostgreSQL-compatible syntax.
+- Executes schema creation for tables like employees, projects, clients, etc.
+- Seeds each table with sample data using Faker.
+- Ensures relational consistency (e.g., linking employees to projects, assigning skills).
+
+Requirements:
+-------------
+- PostgreSQL database accessible via credentials set in a `.env` file.
+- Required libraries: `psycopg2`, `faker`, `python-dotenv`.
+
+.env file should contain:
+--------------------------
+PG_DB_HOST=...
+PG_DB_PORT=...
+PG_DB_USER=...
+PG_DB_PASSWORD=...
+PG_DB_NAME=...
+"""
 import os
 import re
 import random
@@ -10,6 +42,16 @@ from faker import Faker
 from itertools import product
 
 def transform_mysql_to_postgres(stmt: str) -> str:
+    """
+    Convert common MySQL DDL statements to PostgreSQL-compatible syntax.
+
+    Replaces:
+    - INT AUTO_INCREMENT PRIMARY KEY → SERIAL PRIMARY KEY
+    - ENGINE/CHARSET definitions (PostgreSQL doesn't use these)
+
+    Removes backticks
+    """
+
     # 1) INT AUTO_INCREMENT → SERIAL PRIMARY KEY
     stmt = re.sub(
         r'\bINT\s+AUTO_INCREMENT\s+PRIMARY\s+KEY\b',

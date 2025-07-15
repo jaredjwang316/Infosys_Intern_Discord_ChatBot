@@ -1,3 +1,21 @@
+"""
+summary.py
+
+Purpose:
+--------
+This script enables summarization of Discord conversations stored in a PostgreSQL-backed vector database.
+It extracts chat logs from a specified time range and generates a clean, structured summary using the Gemini
+language model via LangChain.
+
+Key Technologies:
+-----------------
+- 🧠 **Google Generative AI (via LangChain)** — Powers the summarization of user-bot interactions.
+- 🗃️ **PostgreSQL (via psycopg2)** — Stores vector-embedded chat messages along with metadata like timestamp and role.
+- 📅 **Time-Filtered Search** — Allows for summaries scoped by channel and time range.
+
+This module is especially useful for generating meeting recaps, daily briefings, or topic-driven summaries 
+from long-running chat logs.
+"""
 import os
 from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -6,29 +24,11 @@ import psycopg2
 from psycopg2 import OperationalError
 import datetime
 
+from memory_storage import memory_storage
+
 load_dotenv()
 api_key = os.getenv("GOOGLE_API_KEY")
 model_name = os.getenv("MODEL_NAME")
-
-PG_CONFIG = {
-    "host":     os.getenv("DB_HOST"),
-    "port":     os.getenv("DB_PORT", 5432),
-    "user":     os.getenv("DB_USER"),
-    "password": os.getenv("DB_PASSWORD"),
-    "dbname":   os.getenv("DB_NAME"),
-}
-
-print("Connecting to Postgres...")
-
-try:
-    conn = psycopg2.connect(**PG_CONFIG)
-    conn.autocommit = True
-    cur  = conn.cursor()
-except OperationalError as e:
-    print("Could not connect to Postgres:", e)
-    raise
-
-print("Connected to Postgres successfully!")
 
 # gemini
 model = ChatGoogleGenerativeAI(
@@ -85,49 +85,37 @@ def summarize_conversation(history):
     response =  model.invoke(message)
     return response.content.strip()
 
+
 def summarize_conversation_by_time(channel_id, start_time, end_time=datetime.datetime.now()):
     """
     Summarize conversation history for a specific channel within a time range.
     Handles both old format (role only) and new format (role, timestamp, channel_id) metadata.
     """
-    # Query for messages with new format (has timestamp and channel_id)
-    new_format_query = """
-        SELECT document, cmetadata, 
-               (cmetadata->>'timestamp')::timestamp as parsed_timestamp
-        FROM langchain_pg_embedding 
-        WHERE cmetadata->>'channel_id' = %s 
-        AND cmetadata->>'timestamp' IS NOT NULL
-        AND (cmetadata->>'timestamp')::timestamp >= %s 
-        AND (cmetadata->>'timestamp')::timestamp <= %s
-        ORDER BY (cmetadata->>'timestamp')::timestamp ASC;
-    """
     
-    try:
-        formatted_history = []
-        cur.execute(new_format_query, (str(channel_id), start_time, end_time))
-        new_messages = cur.fetchall()
-        
-        print(f"🔍 Found {len(new_messages)} messages matching all criteria")
-        
-        # If no messages in time range, return none found message
-        if not new_messages:
-            print("No conversation history found for this channel in the specified time range.")
-            return "No conversation history found for this channel in the specified time range."
-        
-        for document, metadata, timestamp in new_messages:
-            role = metadata.get('role', 'Unknown')
-            
-            formatted_history.append((role, document, timestamp))
+    history = memory_storage.search_by_time(channel_id, start_time, end_time)
+    if not history:
+        return "No messages found in the specified time range."
+    
+    formatted_history = _format_memory_history(history)
+    if not formatted_history:
+        return "No valid messages found in the specified time range."
+    
+    return summarize_conversation(formatted_history)
+    
+def _format_memory_history(history):
+    """
+    Format the memory history for summarization.
+    Converts the history into a list of tuples with (role, message, timestamp).
+    """
+    formatted_history = []
+    for entry in history:
+        role = entry.get('sender', 'Unknown')
+        message = entry.get('content', '')
+        timestamp = entry.get('timestamp', datetime.datetime.now())
+        bot_message = entry.get('bot_message', '')
 
-        formatted_history.sort(key=lambda x: x[2])
+        formatted_history.append((role, message, timestamp))
+        if bot_message:
+            formatted_history.append(('bot', bot_message, timestamp))
         
-        if not formatted_history:
-            return "No conversation history found for this channel."
-
-        print(f"📊 Summarizing {len(formatted_history)} messages...")
-        summary = summarize_conversation(formatted_history)
-        return summary
-        
-    except Exception as e:
-        print(f"❌ Error querying conversation history: {e}")
-        return f"Error retrieving conversation history: {str(e)}"
+    return formatted_history

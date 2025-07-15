@@ -1,5 +1,8 @@
+asyncio
+datetime
 python-dotenv
 discord
+logging
 psycopg2-binary
 langchain
 langchain-community
@@ -7,11 +10,13 @@ langchain-google-genai
 langchain-openai
 langchain-core
 google-genai
-mysql-connector-python
 faker
 pgvector
 matplotlib
 pybase64
+langgraph
+langsmith
+langchain[google-genai]
 tzlocal
 google-auth-oauthlib
 google-api-python-client
