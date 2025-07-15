@@ -15,6 +15,7 @@ Main Responsibilities:
 - Perform vector similarity searches and time-range queries on stored messages.
 - Support reindexing and dynamic tuning of HNSW index parameters.
 """
+from dotenv import load_dotenv
 import os
 from dotenv import load_dotenv
 import psycopg2
@@ -27,6 +28,14 @@ from google import genai
 from google.genai import types
 
 load_dotenv()
+
+# --- Add these print statements for debugging ---
+print("--- Debugging .env variables ---")
+print(f"DATABASE_USER: {os.getenv('DATABASE_USER')}")
+print(f"DATABASE_PASSWORD: {os.getenv('DATABASE_PASSWORD')}")
+print(f"DATABASE_NAME: {os.getenv('DATABASE_NAME')}")
+print("--- End Debugging .env variables ---")
+
 api_key = os.getenv("GOOGLE_API_KEY")
 
 PG_CONFIG = {
@@ -36,6 +45,12 @@ PG_CONFIG = {
     "password": os.getenv("DB_PASSWORD"),
     "dbname":   os.getenv("DB_NAME"),
 }
+
+print("--- PG_CONFIG values being used ---")
+print(f"PG_CONFIG DBNAME: {PG_CONFIG.get('dbname')}")
+print(f"PG_CONFIG USER: {PG_CONFIG.get('user')}")
+print(f"PG_CONFIG PASSWORD (first 3 chars): {PG_CONFIG.get('password')[:3] if PG_CONFIG.get('password') else 'None'}") # Safely print part of password
+print("--- End PG_CONFIG values ---")
 
 class RemoteMemory:
     def __init__(self):

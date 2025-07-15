@@ -18,6 +18,24 @@ Key Technologies:
 - 💬 **discord_bot.py** — Handles real-time interaction with users in Discord servers.
 """
 import os
+import os
+from pathlib import Path # A modern way to handle paths
+
+# Print the current working directory
+current_working_directory = os.getcwd()
+print(f"Current Working Directory (os.getcwd()): {current_working_directory}")
+
+# Another way using pathlib
+current_working_directory_pathlib = Path.cwd()
+print(f"Current Working Directory (Path.cwd()): {current_working_directory_pathlib}")
+
+# Check for the .env file in the CWD
+env_file_in_cwd = Path(current_working_directory) / ".env"
+print(f"Checking for .env in CWD: {env_file_in_cwd} - Exists: {env_file_in_cwd.exists()}")
+
+# After these prints, then you can call load_dotenv()
+from dotenv import load_dotenv
+load_dotenv()
 import discord
 import logging
 import sys
