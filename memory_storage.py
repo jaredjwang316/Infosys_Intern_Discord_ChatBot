@@ -21,7 +21,6 @@ from datetime import datetime
 from langchain_core.vectorstores import InMemoryVectorStore
 from memory.remote_memory import RemoteMemory
 from memory.local_memory import LocalMemory
-from langgraph.checkpoint.memory import MemorySaver
 
 MAX_CACHED_MESSAGES = 20
 
@@ -42,7 +41,6 @@ class MemoryStorage:
     def __init__(self):
         self.local_memory = LocalMemory()
         self.remote_memory = RemoteMemory()
-        self.memory_saver = MemorySaver()
 
     def add_message(self, channel_id: int, user_id: int, content: str):
         """
@@ -97,16 +95,6 @@ class MemoryStorage:
         """
 
         return self.local_memory.get_vectorstore(channel_id)
-    
-    def get_memory_saver(self) -> MemorySaver:
-        """
-        Retrieves the MemorySaver instance used for checkpointing.
-        This is used to save and restore the state of the memory storage.
-        Returns:
-            MemorySaver: The MemorySaver instance for checkpointing.
-        """
-
-        return self.memory_saver
     
     def search_long_term_memory(self, channel_id: int, search_query: str, k: int = 5, similarity_threshold: float = 0.7) -> list[dict]:
         """

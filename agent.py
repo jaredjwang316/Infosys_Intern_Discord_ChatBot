@@ -455,7 +455,8 @@ class Agent:
             "current_user": state["current_user"],
             "current_channel": state["current_channel"],
             "task_description": state.get("task_description", ""),
-            "images": state.get("images", [])
+            "images": state.get("images", []),
+            "loop_count": current_loop_count
         }
     
     def tools_node(self, state: State) -> dict:
@@ -494,5 +495,4 @@ class Agent:
             }
         )
 
-        chat_memory = memory_storage.get_memory_saver()
-        self.graph = builder.compile(checkpointer=chat_memory)
+        self.graph = builder.compile()
