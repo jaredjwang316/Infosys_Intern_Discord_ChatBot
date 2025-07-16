@@ -1,93 +1,194 @@
-import logging
 import os
-from dotenv import load_dotenv
 import re
+import logging
 
-# Load environment variables from .env file immediately
-# This ensures that sensitive values are available for the filter
-# when the module is imported.
-load_dotenv()
-
-class SensitiveDataFilter(logging.Filter):
+# --- Redaction Function ---
+def redact_error_message(error_message: str) -> str:
     """
-    A logging filter that redacts sensitive information from log records.
+    Redacts sensitive or non-essential information from an error message string.
+    This version loads the API key from environment variables internally.
 
-    It loads sensitive values from environment variables (typically from a .env file)
-    and replaces them with a [REDACTED] placeholder in log messages.
+    Args:
+        error_message (str): The raw error message string.
+
+    Returns:
+        str: The redacted error message string.
     """
-    def __init__(self, name="", sensitive_keys=None):
+    redacted_message = error_message
+
+    # --- API Key Redaction (Loaded Internally) ---
+    # Load the API key from environment variables within the function's scope.
+    # This ensures the function only takes 'error_message' as an explicit argument.
+    api_key = os.getenv("GOOGLE_API_KEY")
+    if api_key:
+        # Use re.escape to handle special characters in the API key itself
+        redacted_message = re.sub(
+            re.escape(api_key),
+            '[REDACTED_API_KEY]',
+            redacted_message
+        )
+
+    # --- Specific Keyword Redaction ---
+    # Redact the specific phrase "SUPER DUPER SECRET"
+    redacted_message = re.sub(
+        r'SUPER DUPER SECRET',
+        '[REDACTED]',
+        redacted_message
+    )
+
+    # --- General Redaction Rules ---
+    # Redact specific quota_metric, quota_id, quota_value (common in Google API errors)
+    # Example: quota_metric: "generativelanguage.googleapis.com/generate_content_free_tier_requests"
+    redacted_message = re.sub(
+        r'quota_metric: "[^"]+"',
+        'quota_metric: "[REDACTED_QUOTA_METRIC]"',
+        redacted_message
+    )
+    # Example: quota_id: "GenerateRequestsPerMinutePerProjectPerModel-FreeTier"
+    redacted_message = re.sub(
+        r'quota_id: "[^"]+"',
+        'quota_id: "[REDACTED_QUOTA_ID]"',
+        redacted_message
+    )
+    # Example: quota_value: 10
+    redacted_message = re.sub(
+        r'quota_value: \d+',
+        'quota_value: [REDACTED_QUOTA_VALUE]',
+        redacted_message
+    )
+
+    # Redact specific billing or project IDs if they appear (general pattern)
+    # Example: projects/my-project-123/billingAccounts/abc-def-456
+    redacted_message = re.sub(
+        r'projects/[a-zA-Z0-9-]+/billingAccounts/[a-zA-Z0-9-]+',
+        'projects/[REDACTED_PROJECT_ID]/billingAccounts/[REDACTED_BILLING_ACCOUNT_ID]',
+        redacted_message
+    )
+    # Example: billingAccounts/abc-def-456
+    redacted_message = re.sub(
+        r'billingAccounts/[a-zA-Z0-9-]+',
+        'billingAccounts/[REDACTED_BILLING_ACCOUNT_ID]',
+        redacted_message
+    )
+    # Example: projectId: "my-project-id"
+    redacted_message = re.sub(
+        r'projectId: "[^"]+"',
+        'projectId: "[REDACTED_PROJECT_ID]"',
+        redacted_message
+    )
+
+    # Redact specific resource names if they reveal internal structure beyond model/location
+    # Example: resource: "my-internal-database-name"
+    redacted_message = re.sub(
+        r'resource: "[^"]+"',
+        'resource: "[REDACTED_RESOURCE_NAME]"',
+        redacted_message
+    )
+    
+    # Redact common UUID/GUID patterns (e.g., "123e4567-e89b-12d3-a456-426614174000")
+    redacted_message = re.sub(
+        r'[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}',
+        '[REDACTED_UUID]',
+        redacted_message
+    )
+    # Redact email addresses (e.g., "user@example.com")
+    redacted_message = re.sub(
+        r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}',
+        '[REDACTED_EMAIL]',
+        redacted_message
+    )
+    # Redact IP addresses (IPv4: e.g., "192.168.1.1", IPv6: e.g., "2001:0db8::8a2e:0370:7334")
+    redacted_message = re.sub(
+        r'\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b', # IPv4
+        '[REDACTED_IP_ADDRESS]',
+        redacted_message
+    )
+    redacted_message = re.sub(
+        r'\b(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}\b', # Full IPv6
+        '[REDACTED_IP_ADDRESS]',
+        redacted_message
+    )
+    redacted_message = re.sub(
+        r'\b(?:[0-9a-fA-F]{1,4}:){1,7}:[0-9a-fA-F]{1,4}\b', # Compressed IPv6
+        '[REDACTED_IP_ADDRESS]',
+        redacted_message
+    )
+
+    # Redact URLs that are not public documentation (be careful with this one)
+    # This regex is a general attempt to catch URLs that might contain sensitive paths/details.
+    # It attempts to avoid common public documentation URLs (like ai.google.dev)
+    # You might need to refine this based on your specific needs.
+    redacted_message = re.sub(
+        r'https?://(?!ai\.google\.dev)[^\s/$.?#].\S*\.[^:]+:\d{4}/[^\s]+', # URLs with port and path
+        '[REDACTED_INTERNAL_URL]',
+        redacted_message
+    )
+    redacted_message = re.sub(
+        r'https?://(?!ai\.google\.dev)[^\s/$.?#].\S+', # General URLs
+        '[REDACTED_URL]',
+        redacted_message
+    )
+
+
+    # Add a general indicator that information was redacted
+    if redacted_message != error_message:
+        redacted_message += " [INFO_REDACTED]"
+
+    return redacted_message
+
+# --- Custom Redaction Filter Class ---
+class RedactionFilter(logging.Filter):
+    """
+    A logging filter that redacts sensitive information from log messages
+    and exception details. It now relies on redact_error_message loading API key internally.
+    """
+    def __init__(self, name: str = ''): # Removed api_key from __init__
         super().__init__(name)
-        # Define a list of environment variable names that might hold sensitive data.
-        # These names should correspond to the keys in your .env file.
-        self.sensitive_keys = sensitive_keys if sensitive_keys is not None else [
-            "DB_USER",
-            "DB_PASSWORD",
-            "DB_NAME",
-            "GOOGLE_API_KEY",
-            "DISCORD_BOT_TOKEN",
-            "MODEL_NAME", # While not strictly a secret, could be sensitive info in some contexts
-        ]
-        self.sensitive_values = self._load_sensitive_values()
-        # Create regex patterns for efficient redaction.
-        # Escape special characters in sensitive values to use them in regex.
-        # Use re.escape to handle values like 'my.password?$'
-        self.redaction_patterns = self._compile_redaction_patterns()
-        logging.info("SensitiveDataFilter initialized. Sensitive values loaded.")
-
-    def _load_sensitive_values(self):
-        """
-        Loads sensitive values from environment variables.
-        """
-        values = []
-        for key in self.sensitive_keys:
-            value = os.getenv(key)
-            if value:
-                values.append(value)
-        return values
-
-    def _compile_redaction_patterns(self):
-        """
-        Compiles regex patterns for each sensitive value to be redacted.
-        Patterns are sorted by length (longest first) to prevent partial redactions.
-        """
-        patterns = []
-        # Sort values by length in descending order to ensure longer matches are found first
-        # E.g., redact "my_long_password" before "password"
-        sorted_values = sorted(self.sensitive_values, key=len, reverse=True)
-        for value in sorted_values:
-            # Escape special regex characters in the value
-            # Use word boundaries (\b) to match whole words if appropriate,
-            # but be careful if sensitive values can be part of other strings.
-            # For general redaction, a simple non-greedy match might be better.
-            # Using re.escape and then a direct match is usually safest.
-            patterns.append(re.compile(re.escape(value)))
-        return patterns
 
     def filter(self, record):
-        """
-        Filters and redacts sensitive information from a log record's message.
-        """
-        # Convert message to string if it's not already (e.g., if it's an exception object)
-        message = str(record.msg)
+        # Redact the main log message
+        if isinstance(record.msg, str):
+            record.msg = redact_error_message(record.msg) # Removed api_key argument
+        
+        # Redact exception traceback details (if present)
+        if record.exc_text:
+            record.exc_text = redact_error_message(record.exc_text) # Removed api_key argument
+        
+        return True # Always return True to allow the record to be processed
 
-        # Iterate through compiled patterns and redact sensitive values
-        for pattern in self.redaction_patterns:
-            message = pattern.sub("[REDACTED]", message)
+# --- Logging Configuration Function ---
+def configure_logging_with_redaction(log_level=logging.INFO, log_filename=None): # Removed api_key from signature
+    """
+    Configures the root logger with a file handler, stream handler,
+    and the RedactionFilter.
 
-        # Update the record's message with the redacted version
-        record.msg = message
+    Args:
+        log_level (int): The minimum logging level (e.g., logging.INFO, logging.DEBUG).
+        log_filename (str, optional): Path to the log file. If None, only stream logging.
+    """
+    # Get the root logger
+    root_logger = logging.getLogger()
+    root_logger.setLevel(log_level)
 
-        # If there are arguments (e.g., %s, %d), also try to redact them if they are strings
-        if isinstance(record.args, tuple):
-            redacted_args = []
-            for arg in record.args:
-                if isinstance(arg, str):
-                    redacted_arg = arg
-                    for pattern in self.redaction_patterns:
-                        redacted_arg = pattern.sub("[REDACTED]", redacted_arg)
-                    redacted_args.append(redacted_arg)
-                else:
-                    redacted_args.append(arg)
-            record.args = tuple(redacted_args)
+    # Clear existing handlers to prevent duplicate logs if called multiple times
+    for handler in root_logger.handlers[:]:
+        root_logger.removeHandler(handler)
 
-        return True # Return True to allow the record to be processed by handlers
+    # Add the RedactionFilter to the root logger
+    root_logger.addFilter(RedactionFilter()) # No api_key argument needed here
+
+    # Configure handlers
+    formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
+
+    # Stream handler (for console output)
+    stream_handler = logging.StreamHandler()
+    stream_handler.setFormatter(formatter)
+    root_logger.addHandler(stream_handler)
+
+    # File handler (optional)
+    if log_filename:
+        file_handler = logging.FileHandler(log_filename, encoding="utf-8")
+        file_handler.setFormatter(formatter)
+        root_logger.addHandler(file_handler)
+
+    logging.info("Logging configured with redaction filter.")
