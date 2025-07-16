@@ -30,6 +30,14 @@ import logging
 import datetime
 import concurrent.futures
 
+# --- IMPORTANT: Load .env variables as early as possible ---
+# This ensures that sensitive values are available for the filter
+from dotenv import load_dotenv
+load_dotenv()
+
+# --- Import SensitiveDataFilter after dotenv is loaded ---
+from sensitivity_filter import SensitiveDataFilter
+
 from functions.query import query_data
 from functions.summary import summarize_conversation, summarize_conversation_by_time
 from functions.search import search_conversation, search_conversation_quick
@@ -42,17 +50,43 @@ os.makedirs("logs", exist_ok=True)
 timestamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H-%M-%SZ")
 log_filename = os.path.join("logs", f"agent_session_{timestamp}.log")
 
-# Set up logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    handlers=[
-        logging.FileHandler(log_filename, encoding="utf-8"),  # File
-        logging.StreamHandler()  # Terminal (optional)
-    ]
-)
+# --- Configure Logging with the SensitiveDataFilter ---
+# Get the root logger (or a specific logger if preferred)
+# For simplicity, we'll configure the root logger here, similar to discord_bot.py
+root_logger = logging.getLogger()
+root_logger.setLevel(logging.INFO)
 
-os.environ["GOOGLE_API_KEY"] = os.getenv("GOOGLE_API_KEY")
+# Clear existing handlers if thisbasicConfig is called multiple times (e.g., in tests)
+if root_logger.handlers:
+    for handler in root_logger.handlers[:]:
+        root_logger.removeHandler(handler)
+        handler.close()
+
+# Create a formatter
+formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+
+# Create a FileHandler
+file_handler = logging.FileHandler(log_filename, encoding="utf-8")
+file_handler.setFormatter(formatter)
+
+# Create a StreamHandler for console output
+stream_handler = logging.StreamHandler()
+stream_handler.setFormatter(formatter)
+
+# Add the SensitiveDataFilter to both handlers
+sensitive_filter = SensitiveDataFilter()
+file_handler.addFilter(sensitive_filter)
+stream_handler.addFilter(sensitive_filter)
+
+# Add handlers to the root logger
+root_logger.addHandler(file_handler)
+root_logger.addHandler(stream_handler)
+
+# Now, specific loggers can be created if needed, and they will inherit the filter
+logger = logging.getLogger(__name__)
+
+
+os.environ["GOOGLE_API_KEY"] = os.getenv("GOOGLE_API_KEY") # This line might be redundant if the client uses os.getenv directly
 model_name = os.getenv("MODEL_NAME")
 
 class State(TypedDict):
@@ -74,9 +108,14 @@ class Agent:
     def __init__(self, role_name='default_role', allowed_tools=['query', 'summarize', 'summarize_by_time', 'search']):
         self.role_name = role_name
         self.allowed_tools = allowed_tools
-        self.tool_functions = [getattr(self, tool_name) for tool_name in allowed_tools if tool_name in allowed_tools]
+        self.tool_functions = [getattr(self, tool_name) for tool_name in allowed_tools if hasattr(self, tool_name)] # Corrected getattr usage
 
         self._pending_images = []
+
+        # Ensure model_name is not None before passing to ChatGoogleGenerativeAI
+        if model_name is None:
+            logger.error("MODEL_NAME environment variable is not set. Cannot initialize ChatGoogleGenerativeAI.")
+            raise ValueError("MODEL_NAME environment variable is required.")
 
         self.llm = ChatGoogleGenerativeAI(
             model=model_name,
@@ -122,7 +161,7 @@ class Agent:
         Returns:
             list[str]: A list of messages containing the query result.
         """
-        print("QUERYING")
+        logger.info(f"QUERYING with query: {user_query}") # Log query, filter will redact sensitive parts
 
         result = query_data(user_query)
         
@@ -144,8 +183,10 @@ class Agent:
                 if Agent._current_instance:
                     Agent._current_instance._pending_images.append((filename, file_bytes))
 
+                logger.info("Query returned a diagram or table.")
                 return "Query returned a diagram or table representing the data and is ready to be displayed."
             else:
+                logger.warning("Query failed to generate a diagram or table.")
                 return "Query failed to generate a diagram or table."
 
     @tool
@@ -158,11 +199,11 @@ class Agent:
         Returns:
             str: A list of messages containing the summary.
         """
-        print("SUMMARIZING")
+        logger.info(f"SUMMARIZING channel: {channel_id}")
 
         channel_id = int(channel_id)
         result = summarize_conversation(memory_storage.local_memory.get_chat_history(channel_id))
-
+        logger.info("Summarization complete.")
         return result
 
     @tool
@@ -177,10 +218,10 @@ class Agent:
         Returns:
             str: A list of messages containing the summary.
         """
-        print("SUMMARIZING BY TIME")
+        logger.info(f"SUMMARIZING BY TIME for channel: {channel_id}, rollback: {rollback_time} {time_unit}")
 
         channel_id = int(channel_id)
-        # rollback_time = int(rollback_time)
+        # rollback_time = int(rollback_time) # Already float from tool input
 
         memory_storage.store_all_in_long_term_memory()
 
@@ -188,7 +229,7 @@ class Agent:
         delta_args = {f"{time_unit}": rollback_time}
         since = now - datetime.timedelta(**delta_args)
         result = summarize_conversation_by_time(channel_id, since, now)
-        print(f"🔍 Summarize by time result: {result}")
+        logger.info(f"Summarize by time result: {result}")
 
         return result
 
@@ -203,7 +244,7 @@ class Agent:
         Returns:
             str: A list of messages containing the search results.
         """
-        print("SEARCHING")
+        logger.info(f"SEARCHING channel: {channel_id} with query: {query}")
 
         channel_id = int(channel_id)
 
@@ -216,12 +257,13 @@ class Agent:
             try:
                 total_result = future.result(timeout=30)
             except concurrent.futures.TimeoutError:
-                print("Long search operation timed out, using only quick response instead.")
+                logger.warning("Long search operation timed out, using only quick response instead.")
             except Exception as e:
-                print(f"Error during search operation: {e}")
+                logger.error(f"Error during search operation: {e}")
 
             memory_storage.local_memory.clear_cached_history(channel_id)
 
+        logger.info("Search complete.")
         return total_result if total_result else quick_result
 
     def conductor(self, state: State) -> dict:
@@ -338,7 +380,7 @@ class Agent:
 
         response = self.llm_with_tools.invoke([system_message])
 
-        print(f"\n##### CONDUCTOR RESPONSE ##### \n\n{response}")
+        logger.info(f"\n##### CONDUCTOR RESPONSE ##### \n\n{response}") # Changed print to logger.info
 
         task_description = ""
         if hasattr(response, 'tool_calls') and response.tool_calls:
@@ -352,7 +394,7 @@ class Agent:
             else:
                 task_description = f"User asked: {state['messages'][-1].content.strip()}"
 
-        logging.info(f"Task: {task_description}\nTool calls: {response.tool_calls}")
+        logger.info(f"Task: {task_description}\nTool calls: {response.tool_calls}")
 
         return {
             "messages": [response],
@@ -442,13 +484,13 @@ class Agent:
 
         response = self.llm_with_tools.invoke([human_message])
 
-        print(f"\n##### RESPONSE ##### \n\n{response}")
+        logger.info(f"\n##### RESPONSE ##### \n\n{response}") # Changed print to logger.info
 
         if hasattr(response, 'tool_calls') and response.tool_calls:
             tool_calls = response.tool_calls
-            logging.info(f"Response contains tool calls: {tool_calls}")
+            logger.info(f"Response contains tool calls: {tool_calls}")
         else:
-            logging.info("Response does not contain any tool calls.")
+            logger.info("Response does not contain any tool calls.")
 
         return {
             "messages": [response],
@@ -496,3 +538,4 @@ class Agent:
 
         chat_memory = memory_storage.get_memory_saver()
         self.graph = builder.compile(checkpointer=chat_memory)
+
