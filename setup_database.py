@@ -75,11 +75,13 @@ def transform_mysql_to_postgres(stmt: str) -> str:
 
 def main():
     load_dotenv()
-    host = os.getenv("PG_DB_HOST")
-    port = os.getenv("PG_DB_PORT", 5432)
-    user = os.getenv("PG_DB_USER")
-    pwd  = os.getenv("PG_DB_PASSWORD")
-    db   = os.getenv("PG_DB_NAME")
+    host = os.getenv("DB_HOST")
+    port = os.getenv("DB_PORT", 5432)
+    user = "postgres"
+    pwd  = os.getenv("DB_PASSWORD")
+    db   = os.getenv("DB_NAME")
+
+    print(f"Connecting to Postgres at {host}:{port} as {user}...")
 
     # Connect to RDS
     try:

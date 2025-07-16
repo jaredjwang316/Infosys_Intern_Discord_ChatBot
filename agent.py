@@ -29,10 +29,12 @@ from langgraph.prebuilt import ToolNode, tools_condition
 import logging
 import datetime
 import concurrent.futures
+import discord
 
 from functions.query import query_data
 from functions.summary import summarize_conversation, summarize_conversation_by_time
 from functions.search import search_conversation, search_conversation_quick
+from functions.calendar import cal_handler, get_calendar_service, get_event_details, get_localzone, edit_gcal_event, create_gcal_event, delete_gcal_event
 from memory_storage import memory_storage
 
 # Ensure the logs directory exists
@@ -65,19 +67,25 @@ class State(TypedDict):
     task_description: str
     images: list[tuple[str, bytes]] | None
     loop_count: int
-    guild: Any
+    guild: Any | None
+    events: list[dict] | None
 
 class Agent:
     """
     Agent class to handle the conversation and tool interactions.
     """
 
-    def __init__(self, role_name='default_role', allowed_tools=['query', 'summarize', 'summarize_by_time', 'search']):
+    def __init__(self, role_name='default_role', allowed_tools=['query', 'summarize', 'summarize_by_time', 'search', 'create_event']):
+        """
+        Initialize the Agent with a role and a list of allowed tools.
+        """
         self.role_name = role_name
         self.allowed_tools = allowed_tools
         self.tool_functions = [getattr(self, tool_name) for tool_name in allowed_tools if tool_name in allowed_tools]
 
         self._pending_images = []
+        self._current_guild = None
+        self._pending_events = []
 
         self.llm = ChatGoogleGenerativeAI(
             model=model_name,
@@ -97,20 +105,19 @@ class Agent:
         self.graph = None
         self.build_graph()
 
-    def invoke(self, state: State, config: dict) -> dict:
+    def invoke(self, state: State) -> dict:
         """
         Invoke the agent with the current state.
 
         Args:
             state (State): The current state of the conversation.
-            config (dict): Configuration options for the invocation.
         Returns:
             dict: A dictionary containing the response messages from the agent.
         """
         if self.graph is None:
             self.build_graph()
 
-        return self.graph.invoke(state, config)
+        return self.graph.invoke(state)
 
     @tool
     def query(user_query: str) -> str:
@@ -224,10 +231,62 @@ class Agent:
             memory_storage.local_memory.clear_cached_history(channel_id)
 
         return total_result if total_result else quick_result
+    
+    @tool
+    def create_event(user_id: str, query: str) -> str:
+        """
+        Create a calendar event based on the user's query.
+
+        Args:
+            user_id (str): The ID of the user creating the event.
+            query (str): The user's query to create an event.
+        Returns:
+            str: A message indicating the result of the event creation.
+        """
+        print("CREATING EVENT")
+
+        guild = None
+        if hasattr(Agent, '_current_instance') and Agent._current_instance:
+            guild = Agent._current_instance._current_guild
+        
+        try:
+            if not guild:
+                raise ValueError("Guild information is not available. Cannot create event without guild context.")
+        except Exception as e:
+            print(f"Error getting guild context: {e}")
+            return "❌ Error: Unable to create event without guild context."
+
+        try:
+            # event_dict: {'title': title, 'start_dt': start time, 'end_dt': end time}
+            event_dict = get_event_details(query)
+
+            if not event_dict:
+                return "❌ Error: Unable to parse event details from the query."
+            
+            if not hasattr(Agent, '_current_instance'):
+                Agent._current_instance = None
+
+            if Agent._current_instance:
+                if not hasattr(Agent._current_instance, '_pending_events'):
+                    Agent._current_instance._pending_events = []
+                
+                Agent._current_instance._pending_events.append({
+                    "user_id": user_id,
+                    "event_details": event_dict,
+                    "guild": guild
+                })
+
+            return f"Event created based on query: {query}"
+        
+        except Exception as e:
+            print(f"Error creating event: {e}")
+            return "❌ Error: Unable to create event due to an error."
 
     def conductor(self, state: State) -> dict:
         Agent._current_instance = self
         self._pending_images = []
+        self._current_guild = state.get("guild")
+        self._pending_events = []
 
         # 1) bootstrap memory
         if not state["messages"]:
@@ -253,6 +312,7 @@ class Agent:
             'summarize': '- summarize: For summarizing the entire conversation history of a channel.\n',
             'summarize_by_time': '- summarize_by_time: For summarizing conversation history within a specific time range.\n',
             'search': '- search: For searching the conversation history for specific information.\n',
+            'create_event': '- create_event: For creating calendar events based on user queries. It can parse event details and create events in the user\'s calendar.\n',
         }
         descriptions = [all_descriptions[t] for t in self.allowed_tools]
 
@@ -261,6 +321,7 @@ class Agent:
             'search': '- "search for something" or asking about something from the conversation → Use search tool\n',
             'query': '- "query database" or specific data requests → Use query tool\n',
             'summarize': '- "general summary" → Use summarize tool\n',
+            'create_event': '- "create event" or "add to calendar" → Use create_event tool\n',
         }
         when_to_use = [all_when_to_use[t] for t in self.allowed_tools]
 
@@ -359,7 +420,8 @@ class Agent:
             "messages": [response],
             "current_user": state["current_user"],
             "current_channel": state["current_channel"],
-            "task_description": task_description
+            "task_description": task_description,
+            "loop_count": 0
         }
     
     def generate_response(self, state: State) -> dict:
@@ -457,17 +519,39 @@ class Agent:
             "current_channel": state["current_channel"],
             "task_description": state.get("task_description", ""),
             "images": state.get("images", []),
-            "loop_count": current_loop_count
+            "loop_count": current_loop_count,
+            "guild": state.get("guild"),
+            "events": state.get("events", [])
         }
+    
+    def router(self, state: State) -> str:
+        """
+        Router function to determine if tools are needed based on the state.
+
+        Args:
+            state (State): The current state of the conversation.
+        Returns:
+            str: The next node to transition to.
+        """
+        last_message = state["messages"][-1] if state["messages"] else None
+        if last_message and hasattr(last_message, 'tool_calls') and last_message.tool_calls:
+            return "tools"
+        else:
+            return "generate_response"
     
     def tools_node(self, state: State) -> dict:
 
         self._pending_images = []
+        self._pending_events = []
         result = self.tools.invoke(state)
 
         if self._pending_images:
             result["images"] = self._pending_images
             self._pending_images = []
+
+        if self._pending_events:
+            result["events"] = self._pending_events.copy()
+            self._pending_events = []
         
         return result
 
@@ -480,10 +564,10 @@ class Agent:
 
         builder.add_conditional_edges(
             "conductor", 
-            tools_condition,
+            self.router,
             {
                 "tools": "tools",
-                "__end__": END
+                "generate_response": "generate_response",
             }
         )
         builder.add_edge("tools", "generate_response")

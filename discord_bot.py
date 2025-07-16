@@ -38,7 +38,6 @@ from functions.query import *
 from functions.calendar import * 
 from functions.summary import summarize_conversation, summarize_conversation_by_time
 from functions.search import search_conversation, search_conversation_quick
-from local_memory import LocalMemory
 
 load_dotenv()
 api_key       = os.getenv("GOOGLE_API_KEY")
@@ -64,8 +63,6 @@ intents = discord.Intents.default()
 intents.message_content = True
 client = discord.Client(intents=intents)
 
-# Memory: {user_id: [(role, message, timestamp)]}
-local_memory = LocalMemory()
 scheduled_events = []
 scheduled_gcal_events = []
 str_events = []
@@ -161,6 +158,7 @@ async def on_message(message):
     user_name    = message.author.mention   #string to mention/tag the user in a message.
     user_message = message.content.strip()  #actual text content of the message the user sent.
     channel_id   = message.channel.id   #The unique ID of the channel where the message was sent.
+    guild        = message.guild  #The Discord server (guild) where the message was sent.
     now = datetime.datetime.utcnow()
 
     user_permission_role = get_user_permission_role(message.author.roles)
@@ -173,7 +171,6 @@ async def on_message(message):
     # ---- Calendar handler -----------------------------------------------------------------------------------------------------------------
     if user_message.lower().startswith("event: "):
         event_details = user_message[7:].strip()
-        guild = message.guild
 
         event_action = cal_handler(event_details)
 
@@ -395,12 +392,11 @@ async def on_message(message):
         Expected input: `ask: <your message>`
         """
         messages = HumanMessage(content=user_message)
-        guild = message.guild
 
         ### ROLE BASED ACCESS #####################################################################
         if user_permission_role == "administrator":
             # Call agent for admin
-            allowed_tools = ['query', 'summarize', 'summarize_by_time', 'search'] # Tools allowed for admin use
+            allowed_tools = ['query', 'summarize', 'summarize_by_time', 'search', 'create_event'] # Tools allowed for admin use
             role_name = "admin_agent"
             agent = Agent(role_name=role_name, allowed_tools=allowed_tools)
             logging.info(f"User {user_name} (Admin) is using agent with tools: {allowed_tools}")
@@ -410,7 +406,7 @@ async def on_message(message):
                 "current_user": user_id,
                 "messages": [messages],
                 "guild": guild
-        })
+            })
         elif user_permission_role == "supervisor":
             # Call agent for supervisor
             allowed_tools = ['query', 'summarize', 'summarize_by_time', 'search'] # Tools allowed for supervisor use
@@ -423,7 +419,7 @@ async def on_message(message):
                 "current_user": user_id,
                 "messages": [messages],
                 "guild": guild
-        })
+            })
             
         elif user_permission_role == "member":
             # Call agent for members
@@ -437,7 +433,7 @@ async def on_message(message):
                 "current_user": user_id,
                 "messages": [messages],
                 "guild": guild
-        })
+            })
         else:
             # This case should ideally not be reached due to the initial 'none' check,
             # but it's good practice to have a fallback or raise an error.
@@ -468,20 +464,87 @@ async def on_message(message):
                 await message.channel.send(reply)
 
             images = response.get("images", [])
-            if images:
-                logging.info(f"📸 Sending {len(images)} images in response to {user_name} in channel {channel_id}")
-                for filename, file_data in images:
-                    try:
-                        if isinstance(file_data, bytes):
-                            file_buffer = io.BytesIO(file_data)
-                        else:
-                            file_buffer = file_data
-                        discord_file = discord.File(file_buffer, filename=filename)
-                        await message.channel.send(file=discord_file)
-                        logging.info(f"✅ Image {filename} sent successfully.")
-                    except Exception as e:
-                        logging.error(f"❌ Failed to send image {filename}: {e}")
-                        await message.channel.send(f"❌ Error sending image {filename}")
+            try:
+                if images:
+                    logging.info(f"📸 Sending {len(images)} images in response to {user_name} in channel {channel_id}")
+                    for filename, file_data in images:
+                        try:
+                            if isinstance(file_data, bytes):
+                                file_buffer = io.BytesIO(file_data)
+                            else:
+                                file_buffer = file_data
+                            discord_file = discord.File(file_buffer, filename=filename)
+                            await message.channel.send(file=discord_file)
+                            logging.info(f"✅ Image {filename} sent successfully.")
+                        except Exception as e:
+                            logging.error(f"❌ Failed to send image {filename}: {e}")
+                            await message.channel.send(f"❌ Error sending image {filename}")
+            except Exception as e:
+                logging.error(f"❌ Error processing images in response: {e}")
+                await message.channel.send(f"❌ Error processing images in response: {e}")
+            
+            events = response.get("events", [])
+            try:
+                if events:
+                    logging.info("Creating {len(events)} event(s) for user {user_name}")
+
+                    for event_data in events:
+                        try:
+                            event_dict = event_data['event_details']
+                            event_user_id = event_data['user_id']
+                            event_guild = event_data['guild']
+
+                            overwrites = {
+                                event_guild.default_role: discord.PermissionOverwrite(connect=False),
+                                message.author: discord.PermissionOverwrite(connect=True)
+                            }
+
+                            for guest in message.mentions:
+                                if guest:
+                                    overwrites[guest] = discord.PermissionOverwrite(connect=True)
+                            
+                            voice_channel = await event_guild.create_voice_channel(
+                                name=event_dict['title'],
+                                overwrites=overwrites
+                            )
+
+                            discord_event = await event_guild.create_scheduled_event(
+                                name=event_dict['title'],
+                                start_time=event_dict['start_dt'],
+                                end_time=event_dict['end_dt'],
+                                entity_type=discord.EntityType.voice,
+                                channel=voice_channel,
+                                privacy_level=discord.PrivacyLevel.guild_only
+                            )
+
+                            await message.channel.send(f"✅ Scheduled event: {discord_event.name}")
+
+                            try:
+                                calendar_link, event_id = create_gcal_event(event_dict, event_user_id)
+                                event_dict['gcal_link'] = calendar_link
+                                event_dict['gcal_event_id'] = event_id
+                                await message.channel.send(f"📅 Google Calendar event created: {calendar_link}")
+                            except Exception as e:
+                                logging.error(f"❌ Error creating Google Calendar event: {e}")
+                                await message.channel.send(f"❌ Error creating Google Calendar event: {e}")
+                            
+                            for user in message.mentions:
+                                try:
+                                    await user.send(f"You've been invited to **{event_dict['title']}** on {event_dict['start_dt']}.")
+                                    await user.send(f"📅 You've been invited to **{event_dict['title']}**!\n"
+                                                    f"🕒 When: {event_dict['start_dt']} to {event_dict['end_dt']}\n"
+                                                    f"🔗 Add it to your calendar: {calendar_link}")
+                                except discord.Forbidden:
+                                    print(f"❌ Can't DM {user.name}")
+                            
+                            logging.info(f"✅ Event {discord_event.name} created successfully.")
+                        except Exception as e:
+                            logging.error(f"❌ Error creating event: {e}")
+                            await message.channel.send(f"❌ Error creating event: {e}")
+                            continue
+            except Exception as e:
+                logging.error(f"❌ Error creating events: {e}")
+                await message.channel.send(f"❌ Error creating events: {e}")
         except Exception as e:
             await message.channel.send(f"❌ Error: {e}")
             return

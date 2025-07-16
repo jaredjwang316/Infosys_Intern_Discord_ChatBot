@@ -14,6 +14,7 @@ from email.mime.text import MIMEText
 import base64
 import datetime
 import time
+import json
 
 load_dotenv()
 api_key = os.getenv("GOOGLE_API_KEY")
@@ -55,19 +56,36 @@ def get_event_details(event_details):
         print("Gemini raw output:", response.content)
 
         raw = response.content.strip()
+        
+        # Remove code blocks if present
         if raw.startswith("```"):
             raw = raw.strip("`").strip()
+            if raw.startswith("python"):
+                raw = raw[6:].strip()
         
-        parsed = ast.literal_eval(raw)
-
-        # message = [HumanMessage(content=prompt)]
-        # response = model.invoke(message)
-        # event_dict = ast.literal_eval(response.content.strip())
+        # Handle cases where model returns JSON format instead of Python dict
+        if raw.startswith('{') and raw.endswith('}'):
+            # Try to parse as JSON first, then convert to dict
+            try:
+                parsed = json.loads(raw)
+            except json.JSONDecodeError:
+                # Fall back to ast.literal_eval for Python dict format
+                parsed = ast.literal_eval(raw)
+        else:
+            # Handle other formats like "python" prefix
+            if raw.startswith('python'):
+                raw = raw[6:].strip()
+            parsed = ast.literal_eval(raw)
 
         local_tz = get_localzone()
 
+        # Convert string timestamps to datetime objects first
         parsed['start_dt'] = datetime.datetime.fromisoformat(parsed['start_dt'])
         parsed['end_dt'] = datetime.datetime.fromisoformat(parsed['end_dt'])
+        
+        if parsed['end_dt'] <= parsed['start_dt']:
+            print("Warning: End time is before or equal to start time. Setting end time to 1 hour after start time.")
+            parsed['end_dt'] = parsed['start_dt'] + datetime.timedelta(hours=1)
 
         parsed['start_dt'] = parsed['start_dt'].replace(tzinfo=local_tz).astimezone(datetime.timezone.utc)
         parsed['end_dt'] = parsed['end_dt'].replace(tzinfo=local_tz).astimezone(datetime.timezone.utc)
@@ -76,6 +94,7 @@ def get_event_details(event_details):
 
     except Exception as e:
         print(f"Error generating event details: {e}") 
+        return None
 
 def get_calendar_service():
     creds = None
@@ -167,6 +186,7 @@ def edit_event_details(event_details, event_list):
 
     except Exception as e:
         print(f"Error generating event details: {e}")
+        return None
 
 def edit_gcal_event(updated_event_dict):
     try:
