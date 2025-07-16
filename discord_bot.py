@@ -18,99 +18,29 @@ Key Technologies:
 - 💬 **discord_bot.py** — Handles real-time interaction with users in Discord servers.
 """
 import os
-from pathlib import Path # A modern way to handle paths
+import discord
 import logging
 import sys
 import asyncio
 import io
+
+from dotenv import load_dotenv
+from langchain_google_genai import ChatGoogleGenerativeAI
 import datetime
 
-# --- IMPORTANT: Load .env variables as early as possible ---
-from dotenv import load_dotenv
-load_dotenv()
-
-# --- Import SensitiveDataFilter after dotenv is loaded ---
-from sensitivity_filter import SensitiveDataFilter
-
-# --- Import LangChain core messages here ---
-# This ensures HumanMessage, SystemMessage, AIMessage are available
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
-
-# Print the current working directory (for debugging purposes)
-current_working_directory = os.getcwd()
-print(f"Current Working Directory (os.getcwd()): {current_working_directory}")
-
-# Another way using pathlib (for debugging purposes)
-current_working_directory_pathlib = Path.cwd()
-print(f"Current Working Directory (Path.cwd()): {current_working_directory_pathlib}")
-
-# Check for the .env file in the CWD (for debugging purposes)
-env_file_in_cwd = Path(current_working_directory) / ".env"
-print(f"Checking for .env in CWD: {env_file_in_cwd} - Exists: {env_file_in_cwd.exists()}")
-
-# --- Debugging .env variables after load_dotenv() ---
-print("--- Debugging .env variables AFTER load_dotenv() ---")
-print(f"DATABASE_USER: {os.getenv('DATABASE_USER')}")
-print(f"DATABASE_PASSWORD: {os.getenv('DATABASE_PASSWORD')[:3] if os.getenv('DATABASE_PASSWORD') else 'None'}...") # Print first 3 chars
-print(f"DATABASE_NAME: {os.getenv('DATABASE_NAME')}")
-print(f"GEMINI_API_KEY: {os.getenv('GEMINI_API_KEY')[:3] if os.getenv('GEMINI_API_KEY') else 'None'}...") # Print first 3 chars
-print(f"DISCORD_BOT_TOKEN: {os.getenv('DISCORD_BOT_TOKEN')[:3] if os.getenv('DISCORD_BOT_TOKEN') else 'None'}...") # Print first 3 chars
-print(f"MODEL_NAME: {os.getenv('MODEL_NAME')}")
-print("--- End Debugging .env variables AFTER load_dotenv() ---")
-
-# --- Configure Logging with the SensitiveDataFilter ---
-# Get the root logger
-root_logger = logging.getLogger()
-root_logger.setLevel(logging.INFO) # Set default level for all loggers
-
-# Clear any existing handlers to prevent duplicate logs
-if root_logger.handlers:
-    for handler in root_logger.handlers[:]:
-        root_logger.removeHandler(handler)
-        handler.close()
-
-# Create a formatter
-formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s")
-
-# Create a StreamHandler for console output
-console_handler = logging.StreamHandler()
-console_handler.setFormatter(formatter)
-
-# Create a FileHandler for log file output
-os.makedirs("logs", exist_ok=True)
-timestamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H-%M-%SZ")
-log_filename = os.path.join("logs", f"discord_bot_session_{timestamp}.log")
-file_handler = logging.FileHandler(log_filename, encoding="utf-8")
-file_handler.setFormatter(formatter)
-
-# Add the SensitiveDataFilter to both handlers
-sensitive_filter = SensitiveDataFilter()
-console_handler.addFilter(sensitive_filter)
-file_handler.addFilter(sensitive_filter)
-
-# Add handlers to the root logger
-root_logger.addHandler(console_handler)
-root_logger.addHandler(file_handler)
-
-# Now, specific loggers can be created if needed, and they will inherit the filter
-logger = logging.getLogger(__name__)
-
-
-# --- Other imports that depend on the above setup ---
-import discord
-from langchain_google_genai import ChatGoogleGenerativeAI
-
 from memory_storage import memory_storage
 from agent import Agent
 
+load_dotenv()
 api_key       = os.getenv("GOOGLE_API_KEY")
 discord_token = os.getenv("DISCORD_BOT_TOKEN")
 model_name = os.getenv("MODEL_NAME")
 
 # Check keys
 if not api_key or not discord_token:
-    logger.error("❌ Missing GOOGLE_API_KEY or DISCORD_BOT_TOKEN in .env. Exiting.")
-    sys.exit(1) # Use sys.exit(1) for error exit
+    print("❌ Missing keys in .env")
+    exit()
 
 # gemini
 model = ChatGoogleGenerativeAI(
@@ -166,15 +96,14 @@ async def on_ready():
     Discord event triggered when the bot has successfully connected.
     Sends a startup message to the first available text channel in each guild.
     """
-    logger.info(f"Logged in as {client.user}")
+    print(f"Logged in as {client.user}")
     # Send a message to all text channels the bot can access
     for guild in client.guilds:
         for channel in guild.text_channels:
             try:
                 await channel.send("🤖 I am up and ready!\n For a full list of commands type: `help`")
                 break  # Only send to the first accessible text channel per guild
-            except Exception as e:
-                logger.warning(f"Could not send startup message to {channel.name} in {guild.name}: {e}")
+            except Exception:
                 continue
             
 def get_user_permission_role(member_roles: list) -> str:
@@ -210,9 +139,9 @@ async def on_message(message):
     if message.author == client.user: #discord bot ignores its own messages
         return
     
-    logger.info(f"📨 Message received — User: {message.author} (ID: {message.author.id})")
-    logger.info(f"📨 Channel: {message.channel} (ID: {message.channel.id})")
-    logger.info(f"💬 Content: {message.content}")
+    logging.info(f"📨 Message received — User: {message.author} (ID: {message.author.id})")
+    logging.info(f"📨 Channel: {message.channel} (ID: {message.channel.id})")
+    logging.info(f"💬 Content: {message.content}")
 
     user_id      = message.author.id    #unique Discord user ID of the message sender.
     user_name    = message.author.mention   #string to mention/tag the user in a message.
@@ -224,7 +153,7 @@ async def on_message(message):
     
     if user_permission_role == "none":
         # Log the unauthorized attempt, but DO NOT send a message to the channel
-        logger.warning(f"🚫 Silently ignoring unauthorized message from {message.author} (ID: {user_id}) in channel {message.channel} (ID: {channel_id}). Content: '{user_message}'")
+        logging.warning(f"🚫 Silently ignoring unauthorized message from {message.author} (ID: {user_id}) in channel {message.channel} (ID: {channel_id}). Content: '{user_message}'")
         return # Stop further processing for unauthorized users without sending a public message
     
     # ---- Testing utilities ----------------------------------------------------------------------------------------------------------------
@@ -242,7 +171,7 @@ async def on_message(message):
         Retrieves and displays the embeddings stored for the current channel.
         """
         embeddings = memory_storage.local_memory.get_chat_embeddings()
-        logger.debug(f"Embeddings: {embeddings}") # Use debug level for potentially large output
+        print(embeddings)
         response = split_response(str(embeddings), line_split=False)
         for part in response:
             await message.channel.send(part)
@@ -254,7 +183,7 @@ async def on_message(message):
         Displays the current channel's stored message history.
         """
         chat_history = memory_storage.local_memory.get_chat_history(channel_id)
-        logger.debug(f"Chat History: {chat_history}") # Use debug level
+        print(chat_history)
         response = split_response(str(chat_history), line_split=False)
         for part in response:
             await message.channel.send(part)
@@ -322,6 +251,7 @@ async def on_message(message):
         )
         return
 
+    
     if user_message.lower().startswith("ask: "):
         """
         Sends the user's message to the LangChain agent and returns the bot's response.
@@ -338,7 +268,7 @@ async def on_message(message):
             allowed_tools = ['query', 'summarize', 'summarize_by_time', 'search'] # Tools allowed for admin use
             role_name = "admin_agent"
             agent = Agent(role_name=role_name, allowed_tools=allowed_tools)
-            logger.info(f"User {user_name} (Admin) is using agent with tools: {allowed_tools}")
+            logging.info(f"User {user_name} (Admin) is using agent with tools: {allowed_tools}")
 
             response = agent.invoke({
                 "current_channel": channel_id,
@@ -350,7 +280,7 @@ async def on_message(message):
             allowed_tools = ['query', 'summarize', 'summarize_by_time', 'search'] # Tools allowed for supervisor use
             role_name = "supervisor_agent"
             agent = Agent(role_name=role_name, allowed_tools=allowed_tools)
-            logger.info(f"User {user_name} (Supervisor) is using agent with tools: {allowed_tools}")
+            logging.info(f"User {user_name} (Supervisor) is using agent with tools: {allowed_tools}")
 
             response = agent.invoke({
                 "current_channel": channel_id,
@@ -363,7 +293,7 @@ async def on_message(message):
             allowed_tools = ['summarize', 'summarize_by_time', 'search'] # Tools allowed for member use MEMBERS CANNOT QUERY
             role_name = "member_agent"
             agent = Agent(role_name=role_name, allowed_tools=allowed_tools)
-            logger.info(f"User {user_name} (Member) is using agent with tools: {allowed_tools}")
+            logging.info(f"User {user_name} (Member) is using agent with tools: {allowed_tools}")
 
             response = agent.invoke({
                 "current_channel": channel_id,
@@ -375,7 +305,7 @@ async def on_message(message):
             # but it's good practice to have a fallback or raise an error.
             # For robustness, we'll assign a very limited set or log an unexpected state.
             allowed_tools = [] # No tools if somehow this path is hit for an unauthorized user
-            logger.error(f"Unexpected: User {user_name} with role '{user_permission_role}' reached agent invocation. Assigning no tools.")
+            logging.error(f"Unexpected: User {user_name} with role '{user_permission_role}' reached agent invocation. Assigning no tools.")
 
         ##########################################################################################################################################
         
@@ -401,7 +331,7 @@ async def on_message(message):
 
             images = response.get("images", [])
             if images:
-                logger.info(f"📸 Sending {len(images)} images in response to {user_name} in channel {channel_id}")
+                logging.info(f"📸 Sending {len(images)} images in response to {user_name} in channel {channel_id}")
                 for filename, file_data in images:
                     try:
                         if isinstance(file_data, bytes):
@@ -410,9 +340,9 @@ async def on_message(message):
                             file_buffer = file_data
                         discord_file = discord.File(file_buffer, filename=filename)
                         await message.channel.send(file=discord_file)
-                        logger.info(f"✅ Image {filename} sent successfully.")
+                        logging.info(f"✅ Image {filename} sent successfully.")
                     except Exception as e:
-                        logger.error(f"❌ Failed to send image {filename}: {e}")
+                        logging.error(f"❌ Failed to send image {filename}: {e}")
                         await message.channel.send(f"❌ Error sending image {filename}")
         except Exception as e:
             await message.channel.send(f"❌ Error: {e}")
@@ -424,8 +354,8 @@ async def on_message(message):
 try:
     client.run(discord_token)
 except KeyboardInterrupt:
-    logger.info("⚙️ Bot interrupted and shutting down...")
+    print("⚙️ Bot interrupted and shutting down...")
     sys.exit(0)
 except SystemExit:
-    logger.info("✅ Bot exited successfully.")
+    print("✅ Bot exited successfully.")
     raise
