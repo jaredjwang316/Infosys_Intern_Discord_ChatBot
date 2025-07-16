@@ -251,16 +251,7 @@ async def on_message(message):
         )
         return
 
-    # ---- Process user message with sensitivity filter TEST --------------------------------------------------------------------------------------
-    import sensitivity_filter
-    if user_message.lower().startswith("filter: "):
-        # everything here is a test for the sensitivity filter and will be said in discord
-        await message.channel.send(
-            sensitivity_filter.redact_error_message(user_message)
-        )
-        print(f"Error during search operation: {sensitivity_filter.redact_error_message(user_message)}")
-        return
-    #######################################################################################################################################
+    
     if user_message.lower().startswith("ask: "):
         """
         Sends the user's message to the LangChain agent and returns the bot's response.
