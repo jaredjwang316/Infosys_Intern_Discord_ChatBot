@@ -20,14 +20,12 @@ class SensitiveDataFilter(logging.Filter):
         # Define a list of environment variable names that might hold sensitive data.
         # These names should correspond to the keys in your .env file.
         self.sensitive_keys = sensitive_keys if sensitive_keys is not None else [
-            "DATABASE_USER",
-            "DATABASE_PASSWORD",
-            "DATABASE_NAME",
-            "GEMINI_API_KEY",
+            "DB_USER",
+            "DB_PASSWORD",
+            "DB_NAME",
+            "GOOGLE_API_KEY",
             "DISCORD_BOT_TOKEN",
             "MODEL_NAME", # While not strictly a secret, could be sensitive info in some contexts
-            "GOOGLE_API_KEY", # Often the same as GEMINI_API_KEY but good to include
-            # Add any other keys from your .env file that should be redacted
         ]
         self.sensitive_values = self._load_sensitive_values()
         # Create regex patterns for efficient redaction.
