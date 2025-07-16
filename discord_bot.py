@@ -42,8 +42,9 @@ client = discord.Client(intents=intents)
 # Memory: {user_id: [(role, message, timestamp)]}
 local_memory = LocalMemory()
 scheduled_events = []
-scheduled_gcal_events = []
 str_events = []
+
+server_members = {1385426931905855589: 'aanu203900@gmail.com', 690404946184765471: 'akaadya03@gmail.com'}
 
 def split_response(response, line_split=True):
     max_length = 1900
@@ -219,8 +220,8 @@ async def on_message(message):
         # CREATE EVENTS
         if event_action.lower() == 'create':
             try:
-                # event_dict: {'title': title, 'start_dt': start time, 'end_dt': end time}
                 event_dict = get_event_details(event_details)
+                attendees = []
 
                 # establish overwrite rules
                 overwrites = {guild.default_role: discord.PermissionOverwrite(connect=False)}
@@ -229,9 +230,21 @@ async def on_message(message):
                 for guest in message.mentions:
                     if guest:
                         overwrites[guest] = discord.PermissionOverwrite(connect=True)
+                        
+                        guest_email = server_members[guest.id]
+                        attendees.append({'email': guest_email})
 
                 # Create Discord event
-
+                if event_dict['start_dt'] == 'None' and event_dict['end_dt'] == 'None':
+                    event_dict['start_dt'], event_dict['end_dt'], curr_dt = find_earliest_slot(attendees)
+                    print(event_dict['start_dt'], event_dict['end_dt'], curr_dt)
+                    if event_dict['start_dt'] < curr_dt:
+                        # Apply fallback logic — like finding the next available slot
+                        event_dict['start_dt'], event_dict['end_dt'], curr_dt = find_earliest_slot(attendees)
+                    if not event_dict['start_dt']:
+                        await message.channel.send("❌ Couldn't find a shared free time in the next 3 days.")
+                        return
+        
                 voice_channel = await guild.create_voice_channel(
                     name=event_dict['title'],
                     overwrites=overwrites
@@ -246,10 +259,13 @@ async def on_message(message):
                     privacy_level=discord.PrivacyLevel.guild_only
                 )
 
+                event_dict['discord_id'] = discord_event.id
+
                 await message.channel.send(f"✅ Scheduled event: {discord_event.name}")
 
                 # Create Google Calendar event
-                calendar_link, event_id = create_gcal_event(event_dict, user_id)
+                
+                calendar_link, event_id = create_gcal_event(event_dict, attendees)
 
                 event_dict['gcal_link'] = calendar_link
                 event_dict['gcal_event_id'] = event_id
@@ -263,6 +279,7 @@ async def on_message(message):
                         await user.send(f"📅 You've been invited to **{event_dict['title']}**!\n"
                                         f"🕒 When: {event_dict['start_dt']} to {event_dict['end_dt']}\n"
                                         f"🔗 Add it to your calendar: {calendar_link}")
+                        
                     except discord.Forbidden:
                         print(f"❌ Can't DM {user.name}")
                 
@@ -288,7 +305,7 @@ async def on_message(message):
                 )
 
                 # edit gcal
-                edit_gcal_event(updated_event_dict)
+                edit_gcal_event(updated_event_dict, updated_event_dict['gcal_event_id'])
 
                 await message.channel.send(f"✅ UPDATE - Scheduled event: {updated_event.name}")
                 
