@@ -18,7 +18,7 @@ or regenerate summary insights.
 
 import os
 from dotenv import load_dotenv
-from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
+from langchain_google_vertexai import ChatVertexAI, VertexAIEmbeddings
 from langchain_community.vectorstores import PGVector
 from memory_storage import memory_storage
 
@@ -33,16 +33,15 @@ db_user = os.getenv("DB_USER")
 db_password = os.getenv("DB_PASSWORD")
 
 # gemini
-model = ChatGoogleGenerativeAI(
+model = ChatVertexAI(
     model=model_name,
     temperature=0.7,
     max_tokens=None,
-    timeout=None,
     max_retries=2
 )
 
-embedding_model = GoogleGenerativeAIEmbeddings(
-    model="models/text-embedding-004"
+embedding_model = VertexAIEmbeddings(
+    model_name="models/text-embedding-004"
 )
 
 connection_string = f"postgresql+psycopg2://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"

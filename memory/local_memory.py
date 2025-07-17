@@ -29,7 +29,7 @@ Key Technologies:
 - **PGVector** — PostgreSQL-backed vector storage for long-term retention of embeddings.
 
 """
-from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
+from langchain_google_vertexai import ChatVertexAI, VertexAIEmbeddings
 from langchain_core.vectorstores import InMemoryVectorStore
 from langchain.schema import Document
 import datetime
@@ -38,7 +38,6 @@ import os
 from dotenv import load_dotenv
 
 load_dotenv()
-api_key = os.getenv("GOOGLE_API_KEY")
 
 db_host = os.getenv("DB_HOST")
 db_port = os.getenv("DB_PORT")
@@ -66,15 +65,14 @@ class LocalMemory:
         self.user_query_session_history = {}
         self.last_command_type = {}
 
-        self.model = ChatGoogleGenerativeAI(
+        self.model = ChatVertexAI(
             model="gemini",
             temperature=0.7,
             max_tokens=None,
-            timeout=None,
             max_retries=2
         )
-        self.embedding_model = GoogleGenerativeAIEmbeddings(
-            model="models/text-embedding-004",
+        self.embedding_model = VertexAIEmbeddings(
+            model_name="models/text-embedding-004",
             task_type="SEMANTIC_SIMILARITY"
         )
 

@@ -23,8 +23,11 @@ import datetime
 import numpy as np
 
 from langchain.schema import Document
-from google import genai
-from google.genai import types
+import vertexai
+from vertexai.language_models import TextEmbeddingModel, TextEmbeddingInput
+
+GCP_PROJECT_ID = os.getenv("GCP_PROJECT_ID")
+GCP_REGION = os.getenv("GCP_REGION", "us-central1")
 
 load_dotenv()
 api_key = os.getenv("GOOGLE_API_KEY")
@@ -75,7 +78,13 @@ class RemoteMemory:
         for channel_id in channel_ids:
             self.ef_search[channel_id[0]] = 64
 
-        self.client = genai.Client(api_key=api_key)
+        try:
+            vertexai.init(project=GCP_PROJECT_ID, location=GCP_REGION)
+            self.embedding_model = TextEmbeddingModel.from_pretrained("text-embedding-004")
+            print("Vertex AI initialized successfully!")
+        except Exception as e:
+            print("Failed to initialize Vertex AI:", e)
+            raise
 
     def get_thread_id(self, channel_id: int) -> int:
         """
@@ -240,7 +249,7 @@ class RemoteMemory:
             ))
         print(f"Added {len(filtered_docs)} documents to channel {channel_id}.")
 
-    def _get_embedding(self, texts: list[str]):
+    def _get_embedding(self, texts: list[str], task_type: str = "SEMANTIC_SIMILARITY") -> list[list[float]]:
         """
         Generate an embedding for the given text using Google Generative AI.
         Args:
@@ -249,55 +258,14 @@ class RemoteMemory:
         if not texts:
             return []
         
-        max_batch_size = 250
-        max_tokens_per_request = 18000
-        max_tokens_per_text = 1900
-
-        def estimate_tokens(text):
-            return len(text) // 4 + 1
-
         all_embeddings = []
-        current_batch = []
-        current_token_count = 0
-
-        for text in texts:
-            if estimate_tokens(text) > max_tokens_per_text:
-                text = text[:max_tokens_per_text * 4]
-            
-            text_tokens = estimate_tokens(text)
-            
-            if (len(current_batch) >= max_batch_size or 
-                current_token_count + text_tokens > max_tokens_per_request):
-
-                if current_batch:
-                    response = self.client.models.embed_content(
-                        model="models/text-embedding-004",
-                        contents=current_batch,
-                        config=types.EmbedContentConfig(task_type="SEMANTIC_SIMILARITY")
-                    )
-                    for embedding in response.embeddings:
-                        if hasattr(embedding, 'values'):
-                            all_embeddings.append(embedding.values)
-                        else:
-                            all_embeddings.append(list(embedding))
-                    current_batch = []
-                    current_token_count = 0
-            
-            current_batch.append(text)
-            current_token_count += text_tokens
-
-        if current_batch:
-            response = self.client.models.embed_content(
-                model="models/text-embedding-004",
-                contents=current_batch,
-                config=types.EmbedContentConfig(task_type="SEMANTIC_SIMILARITY")
-            )
-            for embedding in response.embeddings:
-                if hasattr(embedding, 'values'):
-                    all_embeddings.append(embedding.values)
-                else:
-                    all_embeddings.append(list(embedding))
-
+        try:
+            inputs = [TextEmbeddingInput(text, task_type) for text in texts]
+            response = self.embedding_model.get_embeddings(inputs)
+            all_embeddings = [embedding.values for embedding in response]
+        except Exception as e:
+            print(f"An error occurred during embedding generation: {e}")
+        
         return all_embeddings
     
     def search_documents(self, channel_id: int, query: str, k: int = 5, cutoff: float = 0.7) -> list[dict]:

@@ -21,7 +21,7 @@ from typing import Annotated
 from typing_extensions import TypedDict, Any
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_google_vertexai import ChatVertexAI, VertexAIEmbeddings
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage, ToolMessage
 from langchain_core.tools import tool
 from langchain.schema import Document
@@ -87,11 +87,10 @@ class Agent:
         self._current_guild = None
         self._pending_events = []
 
-        self.llm = ChatGoogleGenerativeAI(
+        self.llm = ChatVertexAI(
             model=model_name,
             temperature=0.7,
             max_tokens=None,
-            timeout=None,
             max_retries=2
         )
         self.llm_with_tools = self.llm.bind_tools(self.tool_functions)

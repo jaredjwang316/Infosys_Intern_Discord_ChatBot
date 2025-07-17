@@ -20,7 +20,7 @@ Key Responsibilities:
 import os
 import re
 from dotenv import load_dotenv
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_google_vertexai import ChatVertexAI, VertexAIEmbeddings
 from langchain_core.messages import HumanMessage
 import psycopg2
 from psycopg2 import OperationalError
@@ -214,11 +214,10 @@ except OperationalError as e:
 print("Connected to Postgres successfully!")
 
 # gemini
-model = ChatGoogleGenerativeAI(
+model = ChatVertexAI(
     model=model_name,
     temperature=0.7,
     max_tokens=None,
-    timeout=None,
     max_retries=2
 )
 

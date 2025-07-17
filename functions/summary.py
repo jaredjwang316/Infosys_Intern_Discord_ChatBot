@@ -18,7 +18,7 @@ from long-running chat logs.
 """
 import os
 from dotenv import load_dotenv
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_google_vertexai import ChatVertexAI, VertexAIEmbeddings
 from langchain_core.messages import HumanMessage
 import psycopg2
 from psycopg2 import OperationalError
@@ -31,11 +31,10 @@ api_key = os.getenv("GOOGLE_API_KEY")
 model_name = os.getenv("MODEL_NAME")
 
 # gemini
-model = ChatGoogleGenerativeAI(
+model = ChatVertexAI(
     model=model_name,
     temperature=0.7,
     max_tokens=None,
-    timeout=None,
     max_retries=2
 )
 

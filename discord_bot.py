@@ -23,9 +23,9 @@ import logging
 import sys
 import asyncio
 import io
+from google.cloud import secretmanager
 
 from dotenv import load_dotenv
-from langchain_google_genai import ChatGoogleGenerativeAI
 import datetime
 
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
@@ -39,24 +39,30 @@ from functions.calendar import *
 from functions.summary import summarize_conversation, summarize_conversation_by_time
 from functions.search import search_conversation, search_conversation_quick
 
-load_dotenv()
-api_key       = os.getenv("GOOGLE_API_KEY")
-discord_token = os.getenv("DISCORD_BOT_TOKEN")
-model_name = os.getenv("MODEL_NAME")
+def access_secret_version(project_id, secret_id, version_id):
+    """
+    Accesses a specific version of a secret from Google Secret Manager.
+    
+    Args:
+        project_id (str): The Google Cloud project ID.
+        secret_id (str): The ID of the secret to access.
+        version_id (str): The version of the secret to access.
+    
+    Returns:
+        str: The value of the secret.
+    """
+    client = secretmanager.SecretManagerServiceClient()
+    name = f"projects/{project_id}/secrets/{secret_id}/versions/{version_id}"
+    response = client.access_secret_version(name=name)
+    return response.payload.data.decode('UTF-8')
+
+project_id = "discord-bot-466220"
+discord_token = access_secret_version(project_id, "discord-bot-token")
 
 # Check keys
 if not api_key or not discord_token:
     print("❌ Missing keys in .env")
     exit()
-
-# gemini
-model = ChatGoogleGenerativeAI(
-    model=model_name,
-    temperature=0.7,
-    max_tokens=None,
-    timeout=None,
-    max_retries=2
-)
 
 # ── Discord client setup ──────────────────────────────────────────────────────
 intents = discord.Intents.default()
