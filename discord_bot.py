@@ -64,8 +64,9 @@ intents.message_content = True
 client = discord.Client(intents=intents)
 
 scheduled_events = []
-scheduled_gcal_events = []
 str_events = []
+
+server_members = {1385426931905855589: 'aanu203900@gmail.com', 690404946184765471: 'akaadya03@gmail.com'}
 
 def split_response(response, line_split=True):
     """
