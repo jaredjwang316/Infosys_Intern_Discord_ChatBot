@@ -433,6 +433,7 @@ class Agent:
             'delete_event': '- delete_event: For deleting existing calendar events based on user queries. It can identify which event to delete based on the user\'s description.\n'
         }
         descriptions = [all_descriptions[t] for t in self.allowed_tools]
+        descriptions_str = "\n".join(descriptions)
 
         all_when_to_use = {
             'summarize_by_time': '- "summarize conversation history for last X days/hours" → Use summarize_by_time tool\n',
@@ -444,6 +445,7 @@ class Agent:
             'delete_event': '- "delete event" or "remove from calendar" → Use delete_event tool\n'
         }
         when_to_use = [all_when_to_use[t] for t in self.allowed_tools]
+        when_to_use_str = "\n".join(when_to_use)
 
         # 2) build system prompt & history
         system_prompt = f"""
@@ -451,15 +453,15 @@ class Agent:
         Decide when to use tools based on user requests.
 
         Available tools:
-        {'\n'.join(descriptions)}
-                        
+        {descriptions_str}
+
         If one request needs multiple tools, generate ALL tool calls at once in the correct order.
 
         Current channel: {state["current_channel"]} | User: {state["current_user"]}
         
         WHEN TO USE TOOLS:
-        {'\n'.join(when_to_use)}
-        
+        {when_to_use_str}
+
         WHEN NOT TO USE TOOLS:
         - Greetings ("hello", "hi", etc.)
         - General conversation unrelated to conversation history/database
