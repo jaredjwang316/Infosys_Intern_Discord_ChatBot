@@ -44,7 +44,7 @@ class MemoryStorage:
         self.remote_memory = RemoteMemory()
         self.memory_saver = MemorySaver()
 
-    def add_message(self, channel_id: int, user_id: int, content: str):
+    def add_message(self, channel_id: int, user_id: int, content: str, search_summary: bool = False):
         """
         Adds a message to the chat history for a given channel ID.
         The message is stored as a Document with metadata including the user and timestamp.
@@ -54,7 +54,7 @@ class MemoryStorage:
             content (str): The content of the message.
         """
 
-        self.local_memory.add_message(channel_id, user_id, content)
+        self.local_memory.add_message(channel_id, user_id, content, search_summary)
 
         if len(self.local_memory.total_chat_history.get(channel_id).store.values()) > 20:
             self.store_in_long_term_memory(channel_id)

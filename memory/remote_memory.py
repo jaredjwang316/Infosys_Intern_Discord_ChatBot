@@ -130,9 +130,11 @@ class RemoteMemory:
                 timestamp      TIMESTAMP    NOT NULL,
                 content        TEXT         NOT NULL,
                 bot_message    TEXT         NULL,
-                embedding      vector(768)  NOT NULL
+                embedding      vector(768)  NOT NULL,
+                search_summary BOOLEAN      NOT NULL DEFAULT FALSE
             );
             """
+            # search_summary is a boolean to indicate if the message is either a search tool call or summary tool call
             self.cur.execute(create_table_query)
 
             # # IVFFLAT
@@ -181,7 +183,8 @@ class RemoteMemory:
                     'user': role,
                     'timestamp': timestamp,
                     'content': content,
-                    'bot_message': ''
+                    'bot_message': '',
+                    'search_summary': doc.metadata.get('search_summary', False)
                 }
 
             elif current_docs:
@@ -228,15 +231,16 @@ class RemoteMemory:
 
         table_name = f"ch_{channel_id}"
         insert_query = f"""
-        INSERT INTO {table_name} (sender, timestamp, content, embedding)
-        VALUES (%s, %s, %s, %s)
+        INSERT INTO {table_name} (sender, timestamp, content, embedding, search_summary)
+        VALUES (%s, %s, %s, %s, %s)
         """
         for doc in filtered_docs:
             self.cur.execute(insert_query, (
                 doc['user'],
                 doc['timestamp'],
                 doc['content'],
-                doc['embedding']
+                doc['embedding'],
+                doc['search_summary']
             ))
         print(f"Added {len(filtered_docs)} documents to channel {channel_id}.")
 
@@ -321,6 +325,7 @@ class RemoteMemory:
         SET LOCAL hnsw.ef_search = {self.ef_search.get(channel_id, 64)};
         SELECT sender, timestamp, content, bot_message, embedding
         FROM {table_name}
+        WHERE search_summary = FALSE
         ORDER BY embedding <=> %s::vector
         LIMIT %s;
         """

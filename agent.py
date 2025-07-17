@@ -237,7 +237,8 @@ class Agent:
             memory_storage.add_message(
                 state["current_channel"],
                 state["current_user"],
-                last.content
+                last.content,
+                False
             )
 
         previous_messages = memory_storage.local_memory.get_chat_history(state["current_channel"])

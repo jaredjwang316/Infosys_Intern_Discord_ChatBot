@@ -28,7 +28,7 @@ from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI
 import datetime
 
-from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
+from langchain_core.messages import SystemMessage, HumanMessage, AIMessage, ToolMessage
 from memory_storage import memory_storage
 from agent import Agent
 
@@ -149,7 +149,8 @@ async def on_message(message):
     channel_id   = message.channel.id   #The unique ID of the channel where the message was sent.
     now = datetime.datetime.utcnow()
 
-    user_permission_role = get_user_permission_role(message.author.roles)
+    # user_permission_role = get_user_permission_role(message.author.roles)
+    user_permission_role = 'administrator' # For testing purposes, we set the user role to administrator
     
     if user_permission_role == "none":
         # Log the unauthorized attempt, but DO NOT send a message to the channel
@@ -298,7 +299,7 @@ async def on_message(message):
                 "current_channel": channel_id,
                 "current_user": user_id,
                 "messages": [messages]
-        }, config)
+            }, config)
         else:
             # This case should ideally not be reached due to the initial 'none' check,
             # but it's good practice to have a fallback or raise an error.
@@ -309,7 +310,22 @@ async def on_message(message):
         ##########################################################################################################################################
         
         try:
-            bot_reply = response["messages"][-1].content.strip()
+            messages = response['messages']
+            bot_reply = messages[-1].content.strip()
+            search_summary = False
+            WATCHED = {"search", "summarize", "summarize_by_time"}
+
+            # for msg in messages:
+            #     if hasattr(msg, "tool_call_id") and msg.name in WATCHED:
+            #         logging.info(f"tool_call_id: {msg.tool_call_id}, name: {msg.name}")
+            #         search_summary = True
+            #         break
+
+            if hasattr(messages[-2], "tool_call_id") and messages[-2].name in WATCHED:
+                logging.info(f"tool_call_id: {messages[-2].tool_call_id}, name: {messages[-2].name}")
+                search_summary = True
+            
+            print(f"search summary: {search_summary}")
             
             formatted_reply = ""
             if "TASK:" in bot_reply:
@@ -323,7 +339,7 @@ async def on_message(message):
             
             print(response["messages"])
 
-            memory_storage.add_message(channel_id, "Bot", formatted_reply)
+            memory_storage.add_message(channel_id, "Bot", formatted_reply, search_summary)
             replies = split_response(formatted_reply)
             for reply in replies:
                 await message.channel.send(reply)
@@ -348,7 +364,7 @@ async def on_message(message):
             return
     else:
         # Store non-command messages in local memory for future context
-        memory_storage.add_message(channel_id, user_name, user_message)
+        memory_storage.add_message(channel_id, user_name, user_message, False)
 
 try:
     client.run(discord_token)

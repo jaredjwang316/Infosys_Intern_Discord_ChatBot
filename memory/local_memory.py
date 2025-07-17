@@ -148,7 +148,7 @@ class LocalMemory:
         else:
             self.user_query_session_history[user_id] = []
 
-    def add_message(self, channel_id, user_id, content):
+    def add_message(self, channel_id, user_id, content, search_summary=False):
         """
         Inserts a message into memory with current timestamp.
 
@@ -159,7 +159,7 @@ class LocalMemory:
         """
 
         timestamp = datetime.datetime.now().utcnow()
-        doc = Document(page_content=content, metadata={"user": user_id, "timestamp": timestamp})
+        doc = Document(page_content=content, metadata={"user": user_id, "timestamp": timestamp, 'search_summary': search_summary})
         self._add_message_to_histories(channel_id, user_id, doc)
 
     def add_messages(self, channel_id, messages):
@@ -177,8 +177,8 @@ class LocalMemory:
             self.user_query_session_history[channel_id] = []
             self.last_command_type[channel_id] = None
         
-        for user_id, content, timestamp in messages:
-            doc = Document(page_content=content, metadata={"user": user_id, "timestamp": timestamp})
+        for user_id, content, timestamp, search_summary in messages:
+            doc = Document(page_content=content, metadata={"user": user_id, "timestamp": timestamp, 'search_summary': search_summary})
             self._add_message_to_histories(channel_id, user_id, doc)
 
     def set_chat_history(self, channel_id, messages):
@@ -280,6 +280,7 @@ class LocalMemory:
                 metadata['role'] = 'bot'
             else:
                 metadata['role'] = str(user)
+                # metadata['search_summary'] = 
             
             documents.append(Document(page_content=doc['text'], metadata=metadata))
 
