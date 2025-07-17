@@ -19,6 +19,7 @@ import os
 from dotenv import load_dotenv
 import psycopg2
 from psycopg2 import OperationalError
+from google.cloud import secretmanager
 import datetime
 import numpy as np
 
@@ -26,25 +27,44 @@ from langchain.schema import Document
 import vertexai
 from vertexai.language_models import TextEmbeddingModel, TextEmbeddingInput
 
-GCP_PROJECT_ID = os.getenv("GCP_PROJECT_ID")
-GCP_REGION = os.getenv("GCP_REGION", "us-central1")
+def access_secret_version(project_id, secret_id, version_id="latest"):
+    """
+    Accesses a secret from Google Cloud Secret Manager.
+    """
+    client = secretmanager.SecretManagerServiceClient()
+    name = f"projects/{project_id}/secrets/{secret_id}/versions/{version_id}"
+    response = client.access_secret_version(name=name)
+    return response.payload.data.decode("UTF-8")
 
-load_dotenv()
-api_key = os.getenv("GOOGLE_API_KEY")
+def get_db_connection():
+    """
+    Retrieves database connection parameters from Google Cloud Secret Manager.
+    """
+    try:
+        project_id = "discord-bot-466220"
+        db_name = access_secret_version(project_id, "db_name")
+        db_user = access_secret_version(project_id, "db_user")
+        db_password = access_secret_version(project_id, "db_password")
 
-PG_CONFIG = {
-    "host":     os.getenv("DB_HOST"),
-    "port":     os.getenv("DB_PORT", 5432),
-    "user":     os.getenv("DB_USER"),
-    "password": os.getenv("DB_PASSWORD"),
-    "dbname":   os.getenv("DB_NAME"),
-}
+        conn = psycopg2.connect(
+            dbname=db_name,
+            user=db_user,
+            password=db_password,
+            host="127.0.0.1",
+            port="5432"
+        )
+
+        return conn
+    
+    except Exception as e:
+        print(f"Error accessing database secrets: {e}")
+        raise
 
 class RemoteMemory:
     def __init__(self):
         print("Connecting to Postgres...")
         try:
-            self.conn = psycopg2.connect(**PG_CONFIG)
+            self.conn = get_db_connection()
             self.conn.autocommit = True
             self.cur = self.conn.cursor()
         except OperationalError as e:
@@ -79,7 +99,7 @@ class RemoteMemory:
             self.ef_search[channel_id[0]] = 64
 
         try:
-            vertexai.init(project=GCP_PROJECT_ID, location=GCP_REGION)
+            vertexai.init(project="discord-bot-466220")
             self.embedding_model = TextEmbeddingModel.from_pretrained("text-embedding-004")
             print("Vertex AI initialized successfully!")
         except Exception as e:
