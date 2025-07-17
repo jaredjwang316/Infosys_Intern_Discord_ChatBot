@@ -55,7 +55,6 @@ logging.basicConfig(
     ]
 )
 
-os.environ["GOOGLE_API_KEY"] = os.getenv("GOOGLE_API_KEY")
 model_name = os.getenv("MODEL_NAME")
 
 class State(TypedDict):
