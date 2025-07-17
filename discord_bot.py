@@ -221,7 +221,8 @@ async def on_message(message):
         if event_action.lower() == 'create':
             try:
                 event_dict = get_event_details(event_details)
-                attendees = []
+                print(event_dict)
+                attendees = [{'email': server_members[user_id]}]
 
                 # establish overwrite rules
                 overwrites = {guild.default_role: discord.PermissionOverwrite(connect=False)}
@@ -236,11 +237,11 @@ async def on_message(message):
 
                 # Create Discord event
                 if event_dict['start_dt'] == 'None' and event_dict['end_dt'] == 'None':
-                    event_dict['start_dt'], event_dict['end_dt'], curr_dt = find_earliest_slot(attendees)
+                    event_dict['start_dt'], event_dict['end_dt'], curr_dt = find_earliest_slot(attendees, event_dict['search_start'], event_dict['search_end'], event_dict['duration'])
                     print(event_dict['start_dt'], event_dict['end_dt'], curr_dt)
                     if event_dict['start_dt'] < curr_dt:
                         # Apply fallback logic — like finding the next available slot
-                        event_dict['start_dt'], event_dict['end_dt'], curr_dt = find_earliest_slot(attendees)
+                        event_dict['start_dt'], event_dict['end_dt'], curr_dt = find_earliest_slot(attendees, event_dict['search_start'], event_dict['search_end'], event_dict['duration'])
                     if not event_dict['start_dt']:
                         await message.channel.send("❌ Couldn't find a shared free time in the next 3 days.")
                         return
