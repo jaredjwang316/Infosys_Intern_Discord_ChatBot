@@ -29,6 +29,7 @@ from langgraph.prebuilt import ToolNode, tools_condition
 import logging
 import datetime
 import concurrent.futures
+import sensitivity_filter
 import discord
 
 from functions.query import query_data
@@ -82,7 +83,6 @@ class Agent:
         self.role_name = role_name
         self.allowed_tools = allowed_tools
         self.tool_functions = [getattr(self, tool_name) for tool_name in allowed_tools if tool_name in allowed_tools]
-
         self._pending_images = []
         self._current_guild = None
         self._pending_events = []
@@ -226,7 +226,7 @@ class Agent:
             except concurrent.futures.TimeoutError:
                 print("Long search operation timed out, using only quick response instead.")
             except Exception as e:
-                print(f"Error during search operation: {e}")
+                print(f"Error during search operation: {sensitivity_filter(e)}")
 
             memory_storage.local_memory.clear_cached_history(channel_id)
 
