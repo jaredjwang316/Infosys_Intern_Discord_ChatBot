@@ -174,65 +174,8 @@ async def on_message(message):
 
         event_action = cal_handler(event_details)
 
-        # CREATE EVENTS
-        if event_action.lower() == 'create':
-            try:
-                # event_dict: {'title': title, 'start_dt': start time, 'end_dt': end time}
-                event_dict = get_event_details(event_details)
-
-                # establish overwrite rules
-                overwrites = {guild.default_role: discord.PermissionOverwrite(connect=False)}
-                overwrites[message.author] = discord.PermissionOverwrite(connect=True)
-
-                for guest in message.mentions:
-                    if guest:
-                        overwrites[guest] = discord.PermissionOverwrite(connect=True)
-
-                # Create Discord event
-
-                voice_channel = await guild.create_voice_channel(
-                    name=event_dict['title'],
-                    overwrites=overwrites
-                )
-
-                discord_event = await guild.create_scheduled_event(
-                    name=event_dict['title'],
-                    start_time=event_dict['start_dt'],
-                    end_time=event_dict['end_dt'],
-                    entity_type=discord.EntityType.voice,
-                    channel=voice_channel,
-                    privacy_level=discord.PrivacyLevel.guild_only
-                )
-
-                await message.channel.send(f"✅ Scheduled event: {discord_event.name}")
-
-                # Create Google Calendar event
-                calendar_link, event_id = create_gcal_event(event_dict, user_id)
-
-                event_dict['gcal_link'] = calendar_link
-                event_dict['gcal_event_id'] = event_id
-
-                await message.channel.send(f"📅 Google Calendar event created: {calendar_link}")
-
-                # send invite DMs
-                for user in message.mentions:
-                    try:
-                        await user.send(f"You've been invited to **{event_dict['title']}** on {event_dict['start_dt']}.")
-                        await user.send(f"📅 You've been invited to **{event_dict['title']}**!\n"
-                                        f"🕒 When: {event_dict['start_dt']} to {event_dict['end_dt']}\n"
-                                        f"🔗 Add it to your calendar: {calendar_link}")
-                    except discord.Forbidden:
-                        print(f"❌ Can't DM {user.name}")
-                
-                # add events to full list (local memory)
-                scheduled_events.append(event_dict)
-                str_events.append(str(event_dict))
-            
-            except Exception as e:
-                await message.channel.send(f"❌ Failed to create event: {e}")
-        
         # EDIT EVENTS
-        elif event_action.lower() == 'edit':
+        if event_action.lower() == 'edit':
             try:
                 updated_event_dict = edit_event_details(event_details, str_events)
 
@@ -538,16 +481,20 @@ async def on_message(message):
                                     print(f"❌ Can't DM {user.name}")
                             
                             logging.info(f"✅ Event {discord_event.name} created successfully.")
+
                         except Exception as e:
                             logging.error(f"❌ Error creating event: {e}")
                             await message.channel.send(f"❌ Error creating event: {e}")
                             continue
+
             except Exception as e:
                 logging.error(f"❌ Error creating events: {e}")
                 await message.channel.send(f"❌ Error creating events: {e}")
+
         except Exception as e:
             await message.channel.send(f"❌ Error: {e}")
             return
+        
     else:
         # Store non-command messages in local memory for future context
         memory_storage.add_message(channel_id, user_name, user_message)

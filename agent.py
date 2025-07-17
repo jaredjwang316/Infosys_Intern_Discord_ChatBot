@@ -281,6 +281,28 @@ class Agent:
         except Exception as e:
             print(f"Error creating event: {e}")
             return "❌ Error: Unable to create event due to an error."
+    
+    @tool
+    def edit_event(user_id: str, query: str) -> str:
+        """
+        Edit a calendar event based on the user's query.
+
+        Args:
+            user_id (str): The ID of the user editing the event.
+            query (str): The user's query to edit an event.
+        Returns:
+            str: A message indicating the result of the event editing.
+        """
+        print("EDITING EVENT")
+
+        guild = None
+        if hasattr(Agent, '_current_instance') and Agent._current_instance:
+            guild = Agent._current_instance._current_guild
+        
+        if not guild:
+            return "❌ Error: Unable to edit event without guild context."
+        
+        
 
     def conductor(self, state: State) -> dict:
         Agent._current_instance = self
