@@ -72,7 +72,7 @@ class LocalMemory:
             max_retries=2
         )
         self.embedding_model = VertexAIEmbeddings(
-            model_name="models/text-embedding-004",
+            model_name="text-embedding-004",
         )
 
     def _find_last_command_type(self, user_id, doc):
