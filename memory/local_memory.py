@@ -73,7 +73,6 @@ class LocalMemory:
         )
         self.embedding_model = VertexAIEmbeddings(
             model_name="models/text-embedding-004",
-            task_type="SEMANTIC_SIMILARITY"
         )
 
     def _find_last_command_type(self, user_id, doc):
