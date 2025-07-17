@@ -23,7 +23,6 @@ from langchain_community.vectorstores import PGVector
 from memory_storage import memory_storage
 
 load_dotenv()
-api_key = os.getenv("GOOGLE_API_KEY")
 model_name = os.getenv("MODEL_NAME")
 
 db_host = os.getenv("DB_HOST")

@@ -1,6 +1,7 @@
 import os
 import re
 import logging
+from db_connector import access_secret_version
 
 # --- Redaction Function ---
 def redact_error_message(error_message: str) -> str:

@@ -27,7 +27,6 @@ import datetime
 from memory_storage import memory_storage
 
 load_dotenv()
-api_key = os.getenv("GOOGLE_API_KEY")
 model_name = os.getenv("MODEL_NAME")
 
 # gemini

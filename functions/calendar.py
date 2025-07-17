@@ -14,7 +14,6 @@ import dateparser
 import json
 
 load_dotenv()
-api_key = os.getenv("GOOGLE_API_KEY")
 model_name = os.getenv("MODEL_NAME")
 
 # gemini
