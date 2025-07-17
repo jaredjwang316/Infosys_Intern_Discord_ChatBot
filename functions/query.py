@@ -166,7 +166,6 @@ def generate_chart_file(rows, columns, chart_type="bar", user_query=None):
     return buf
 
 load_dotenv()
-api_key = os.getenv("GOOGLE_API_KEY")
 model_name = os.getenv("MODEL_NAME")
 
 try:
