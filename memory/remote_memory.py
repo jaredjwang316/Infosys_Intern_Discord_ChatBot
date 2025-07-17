@@ -42,9 +42,9 @@ def get_db_connection():
     """
     try:
         project_id = "discord-bot-466220"
-        db_name = access_secret_version(project_id, "db_name")
-        db_user = access_secret_version(project_id, "db_user")
-        db_password = access_secret_version(project_id, "db_password")
+        db_name = access_secret_version(project_id, "db-name")
+        db_user = access_secret_version(project_id, "db-user")
+        db_password = access_secret_version(project_id, "db-password")
 
         conn = psycopg2.connect(
             dbname=db_name,
