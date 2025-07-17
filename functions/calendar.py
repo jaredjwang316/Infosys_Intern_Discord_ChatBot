@@ -8,11 +8,9 @@ from langchain_core.messages import HumanMessage
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
-from email.mime.text import MIMEText
-import base64
 import datetime
-import time
 import pytz
+import dateparser
 
 load_dotenv()
 api_key = os.getenv("GOOGLE_API_KEY")
@@ -76,23 +74,44 @@ def cal_handler(event_details):
         print(f"Error in confirming calendar tool action: {e}")
 
 def get_event_details(event_details):
+        tz = get_localzone()
+        now = datetime.datetime.now(tz).isoformat()
 
         prompt = f"""
         You are a helpful assistant extracting event details from natural language.
 
         From the following text, return ONLY a Python dictionary in this exact format:
         {{
-        "title": "Team Sync",
-        "start_dt": "2025-07-09T14:00:00",
-        "end_dt": "2025-07-09T14:30:00"
+            "title": "Team Sync",
+            "start_dt": "2025-07-09T14:00:00",
+            "end_dt": "2025-07-09T15:00:00",
+            "duration": 60,
+            "search_start": "2025-07-09T08:00:00",
+            "search_end": "2025-07-12T17:00:00"
         }}
 
-        Use ISO 8601 strings for the times. If start times/dates are not specified, enter 'None' as a string in the place of those values.
-        
-        Do not include code fences, markdown formatting, or any other text.
+        Rules:
+        - All dates/times must be at least 1 hour AFTER the given 'Current Date/Time'. Use the 'Current Date/Time' when parsing relational phrases like 'today', 'tomorrow', 'next week', etc.
+        - Use ISO 8601 format for 'start_dt', 'end_dt', 'search_start', and 'search_end' values.
+        - The value for 'duration' should be the duration of the meeting in minutes as an integer.
+        - If 'start_dt' and 'end_dt' are both missing, enter 'None' as a string for those fields and try to extract a search range from the message:
+            - Look for date/time phrases indicating a search window (e.g. "after July 19th", "between July 9th and July 12th").
+            - Populate 'search_start' and 'search_end' accordingly. If you find only one boundary, fill that one and leave the other as 'None' as a string.
+            - Choose a date/time at least 1 hour AFTER the given 'Current Date/Time'.
+        - If 'start_dt' is given and 'end_dt' is missing:
+            - Look for a duration and calculate 'end_dt' by adding it to 'start_dt'.
+            - If no duration is found, default 'duration' to 60 and set 'end_dt' as 'start_dt' + 60 minutes.
+        - If both 'start_dt' and 'end_dt' are given, use them to calculate 'duration'.
+        - If no duration info can be inferred, default 'duration' to 60 minutes.
+        - Leave fields empty with the string 'None' if the information cannot be determined.
+
+        Respond ONLY with the Python dictionary described above. Do not add any explanatory text, markdown, or formatting.
 
         ### EVENT DETAILS ###
         {event_details}
+
+        ### CURRENT DATE/TIME ###
+        {now}
         """
 
         try:
@@ -109,6 +128,13 @@ def get_event_details(event_details):
             parsed = ast.literal_eval(raw)
 
             local_tz = get_localzone()
+            if parsed['search_start'] != 'None':
+                parsed['search_start'] = datetime.datetime.fromisoformat(parsed['search_start'])
+                parsed['search_start'] = parsed['search_start'].replace(tzinfo=local_tz).astimezone(datetime.timezone.utc)
+
+            if parsed['search_end'] != 'None':
+                parsed['search_end'] = datetime.datetime.fromisoformat(parsed['search_end'])
+                parsed['search_end'] = parsed['search_end'].replace(tzinfo=local_tz).astimezone(datetime.timezone.utc)
 
             if parsed['start_dt'] != 'None' and parsed['end_dt'] != 'None':
                 parsed['start_dt'] = datetime.datetime.fromisoformat(parsed['start_dt'])
@@ -123,6 +149,8 @@ def get_event_details(event_details):
             print(f"Error generating event details: {e}")
 
 def edit_event_details(event_details, event_list):
+    tz = get_localzone()
+    now = datetime.datetime.now(tz).isoformat()
 
     prompt = f"""
     You are a helpful assistant that updates calendar events based on natural language instructions.
@@ -139,11 +167,29 @@ def edit_event_details(event_details, event_list):
     5. Keep the formatting and datatypes for the values mapped to 'title' the same as the original dictionary.
     6. DO NOT CHANGE THE VALUES MAPPED TO 'gcal_event_id' OR 'gcal_link'.
 
+    Rules:
+    - All dates/times must be at least 1 hour AFTER the given 'Current Date/Time'. Use the 'Current Date/Time' when parsing relational phrases like 'today', 'tomorrow', 'next week', etc.
+    - Use ISO 8601 format for 'start_dt', 'end_dt', 'search_start', and 'search_end' values.
+    - The value for 'duration' should be the duration of the meeting in minutes as an integer.
+    - If 'start_dt' and 'end_dt' are both missing, enter 'None' as a string for those fields and try to extract a search range from the message:
+        - Look for date/time phrases indicating a search window (e.g. "after July 19th", "between July 9th and July 12th").
+        - Populate 'search_start' and 'search_end' accordingly. If you find only one boundary, fill that one and leave the other as 'None' as a string.
+        - Choose a date/time at least 1 hour AFTER the given 'Current Date/Time'.
+    - If 'start_dt' is given and 'end_dt' is missing:
+        - Look for a duration and calculate 'end_dt' by adding it to 'start_dt'.
+        - If no duration is found, default 'duration' to 60 and set 'end_dt' as 'start_dt' + 60 minutes.
+    - If both 'start_dt' and 'end_dt' are given, use them to calculate 'duration'.
+    - If no duration info can be inferred, default 'duration' to 60 minutes.
+    - Leave fields empty with the string 'None' if the information cannot be determined.
+
     ### EXISTING EVENTS ###
     {event_list}
 
     ### MESSAGE ###
     {event_details}
+
+    ### CURRENT DATE/TIME ###
+    {now}
 
     Return ONLY the modified dictionary and nothing else.
     MAKE SURE THE LENGTH OF THE MEETING (end time - start time) STAYS THE SAME UNLESS EXPLICITLY CHANGED.
@@ -174,6 +220,8 @@ def edit_event_details(event_details, event_list):
         print(f"Error generating event details: {e}")
 
 def delete_event_details(event_details, event_list):
+    tz = get_localzone()
+    now = datetime.datetime.now(tz).isoformat()
 
     prompt = f"""
     You are a helpful assistant that selects calendar events based on natural language instructions.
@@ -187,12 +235,30 @@ def delete_event_details(event_details, event_list):
     2. Return the dictionary of the selected event with the following changes:
         - Convert the values mapped to 'start_dt' and 'end_dt' to ISO 8601 format.
         - Keep the formatting and datatypes for the values mapped to 'title' the same as the original dictionary.
+    
+    Rules:
+    - All dates/times must be at least 1 hour AFTER the given 'Current Date/Time'. Use the 'Current Date/Time' when parsing relational phrases like 'today', 'tomorrow', 'next week', etc.
+    - Use ISO 8601 format for 'start_dt', 'end_dt', 'search_start', and 'search_end' values.
+    - The value for 'duration' should be the duration of the meeting in minutes as an integer.
+    - If 'start_dt' and 'end_dt' are both missing, enter 'None' as a string for those fields and try to extract a search range from the message:
+        - Look for date/time phrases indicating a search window (e.g. "after July 19th", "between July 9th and July 12th").
+        - Populate 'search_start' and 'search_end' accordingly. If you find only one boundary, fill that one and leave the other as 'None' as a string.
+        - Choose a date/time at least 1 hour AFTER the given 'Current Date/Time'.
+    - If 'start_dt' is given and 'end_dt' is missing:
+        - Look for a duration and calculate 'end_dt' by adding it to 'start_dt'.
+        - If no duration is found, default 'duration' to 60 and set 'end_dt' as 'start_dt' + 60 minutes.
+    - If both 'start_dt' and 'end_dt' are given, use them to calculate 'duration'.
+    - If no duration info can be inferred, default 'duration' to 60 minutes.
+    - Leave fields empty with the string 'None' if the information cannot be determined.
 
     ### EXISTING EVENTS ###
     {event_list}
 
     ### MESSAGE ###
     {event_details}
+
+    ### CURRENT DATE/TIME ###
+    {now}
 
     Do not include any code blocks, extra formatting, or explanation.
     """
@@ -269,7 +335,7 @@ def delete_gcal_event(event_id):
         print(f"❌ Error deleting Google Calendar event: {e}")
         return False
 
-def find_earliest_slot(attendees, duration=60):
+def find_earliest_slot(attendees, search_start, search_end, duration):
     service, creds = get_google_service('calendar', 'v3')
     
     attendee_emails = []
@@ -277,7 +343,19 @@ def find_earliest_slot(attendees, duration=60):
         attendee_emails.append(user['email'])
     
     now = datetime.datetime.now(pytz.utc)
-    time_max = now + datetime.timedelta(days=3)
+
+    if search_start == 'None':
+        slot_start = now + datetime.timedelta(hours=1)
+    else:
+        slot_start = search_start
+
+    if search_end == 'None':
+        if search_start == 'None':
+            time_max = now + datetime.timedelta(days=3)
+        elif search_start != 'None':
+            time_max = search_start + datetime.timedelta(days=3)
+    else:
+        time_max = search_end
 
     body = {
         'timeMin': now.isoformat(),
@@ -290,11 +368,26 @@ def find_earliest_slot(attendees, duration=60):
     busy = [slot for cal in freebusy.values() for slot in cal.get('busy', [])]
     busy.sort(key=lambda s: s['start'])
 
-    slot_start = now + datetime.timedelta(hours=1)
+    work_start = 8
+    work_end = 17
+    local_tz = pytz.timezone("America/Chicago")
+
     while slot_start + datetime.timedelta(minutes=duration) < time_max:
+        local_slot = slot_start.astimezone(local_tz)
+        local_hour = local_slot.hour
+
+        if local_hour < work_start or (local_hour + duration) / 60 > work_end:
+            next_day = (local_slot + datetime.timedelta(days=1)).replace(
+                hour=work_start, minute=0, second=0, microsecond=0
+            )
+            slot_start = next_day.astimezone(pytz.utc)
+            continue
+
         slot_end = slot_start + datetime.timedelta(minutes=duration)
+
         if not any(slot_start < datetime.fromisoformat(b['end']) and slot_end > datetime.fromisoformat(b['start']) for b in busy):
             return slot_start, slot_end, now
+        
         slot_start += datetime.timedelta(minutes=15)
     
     return None, None, None
