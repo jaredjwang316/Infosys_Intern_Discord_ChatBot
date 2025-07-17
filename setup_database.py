@@ -190,6 +190,8 @@ def main():
     )
 
     # Done
+    conn.commit()
+    print("✅ All tables created and seeded successfully!")
     cur.close()
     conn.close()
     print(f"🎉 Seeded {NUM} rows into each table.")
