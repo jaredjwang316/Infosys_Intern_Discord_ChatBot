@@ -1,3 +1,26 @@
+"""
+sensitivity_filter.py
+
+Purpose:
+--------
+This module configures logging to automatically redact sensitive information 
+preventing accidental exposure of secrrets such as API keys, tokens, passwords, 
+and other private data into log files.
+
+Key Features:
+-------------
+- Redacts sensitive data including API keys, tokens, passwords, database credentials,
+  internal URLs, IP addresses, email addresses, UUIDs, and more.
+- Dynamically redacts environment variable values related to secrets (e.g., DB_PASSWORD,
+  DISCORD_BOT_TOKEN, GOOGLE_API_KEY) wherever they appear in log messages.
+- Uses a RedactionFilter to apply redaction to both log messages and exception tracebacks.
+- Provides a convenient `configure_logging_with_redaction()` function to setup
+  logging handlers (console and optional file) with the redaction filter automatically applied.
+
+This module is intended for use in applications handling sensitive credentials or data,
+ensuring logs are safe to share or store without risking leakage of confidential information.
+"""
+
 import os
 import re
 import logging
@@ -27,6 +50,17 @@ def redact_error_message(error_message: str) -> str:
             '[REDACTED_API_KEY]',
             redacted_message
         )
+
+    # --- Add-on: Redact sensitive env values like DB credentials and tokens ---
+    for key, value in os.environ.items():
+        if not value:
+            continue
+
+        # Check if the environment variable name indicates it might contain sensitive data
+        if re.search(r'(password|token|secret|api|key|host|user|db_name)', key, re.IGNORECASE):
+            # If the value appears in the error message, replace it with a redacted placeholder
+            # The placeholder uses the environment variable's name in uppercase, e.g., [REDACTED_DB_PASSWORD]
+            redacted_message = redacted_message.replace(value, f"[REDACTED_{key.upper()}]")
 
     # --- Specific Keyword Redaction ---
     # Redact the specific phrase "SUPER DUPER SECRET"
