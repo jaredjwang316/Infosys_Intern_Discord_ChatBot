@@ -13,6 +13,7 @@ google-genai
 faker
 pgvector
 matplotlib
+numpy
 pybase64
 langgraph
 langsmith
