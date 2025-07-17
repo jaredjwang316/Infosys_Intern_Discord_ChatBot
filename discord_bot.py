@@ -168,71 +168,6 @@ async def on_message(message):
         logging.warning(f"🚫 Silently ignoring unauthorized message from {message.author} (ID: {user_id}) in channel {message.channel} (ID: {channel_id}). Content: '{user_message}'")
         return # Stop further processing for unauthorized users without sending a public message
     
-    # ---- Calendar handler -----------------------------------------------------------------------------------------------------------------
-    if user_message.lower().startswith("event: "):
-        event_details = user_message[7:].strip()
-
-        event_action = cal_handler(event_details)
-
-        # EDIT EVENTS
-        if event_action.lower() == 'edit':
-            try:
-                updated_event_dict = edit_event_details(event_details, str_events)
-
-                # edit discord
-                updated_event = discord.utils.get(guild.scheduled_events, name=updated_event_dict['title'])
-                
-                await updated_event.edit(
-                    name=updated_event_dict['title'],
-                    start_time=updated_event_dict['start_dt'],
-                    end_time=updated_event_dict['end_dt']
-                )
-
-                # edit gcal
-                edit_gcal_event(updated_event_dict)
-
-                await message.channel.send(f"✅ UPDATE - Scheduled event: {updated_event.name}")
-                
-                # send update DMs
-                for user in message.mentions:
-                    try:
-                        await user.send(f"The following event has been updated: **{updated_event_dict['title']}** on {updated_event_dict['start_dt']}.")
-                    except discord.Forbidden:
-                        print(f"❌ Can't DM {user.name}")
-
-            except Exception as e:
-                await message.channel.send(f"❌ Failed to edit event: {e}")
-        
-        # DELETE EVENTS
-        elif event_action.lower() == 'delete':
-            try:
-                deleted_event_dict = delete_event_details(event_details, str_events)
-                deleted_event = discord.utils.get(guild.scheduled_events, name=deleted_event_dict['title'])
-                
-                if deleted_event:
-                    await deleted_event.delete()
-
-                    vc_channel = discord.utils.get(guild.voice_channels, name=deleted_event.name)
-                    await vc_channel.delete()
-
-                    await message.channel.send(f"🗑️ Event '{deleted_event.name}' has been deleted.")
-
-                    delete_gcal_event(deleted_event_dict['gcal_event_id'])
-
-                    for user in message.mentions:
-                        try:
-                            await user.send(f"The following event has been deleted: **{deleted_event_dict['title']}** on {deleted_event_dict['start_dt']}.")
-                        except discord.Forbidden:
-                            print(f"❌ Can't DM {user.name}")
-
-                else:
-                    await message.channel.send(f"❌ No matching scheduled event found.")
-
-            except Exception as e:
-                await message.channel.send(f"❌ Failed to edit event: {e}")
-
-
-
     # ---- Testing utilities ----------------------------------------------------------------------------------------------------------------
     if user_message.lower() == "test":
         """
@@ -339,7 +274,7 @@ async def on_message(message):
         ### ROLE BASED ACCESS #####################################################################
         if user_permission_role == "administrator":
             # Call agent for admin
-            allowed_tools = ['query', 'summarize', 'summarize_by_time', 'search', 'create_event'] # Tools allowed for admin use
+            allowed_tools = ['query', 'summarize', 'summarize_by_time', 'search', 'create_event', 'edit_event', 'delete_event']
             role_name = "admin_agent"
             agent = Agent(role_name=role_name, allowed_tools=allowed_tools)
             logging.info(f"User {user_name} (Admin) is using agent with tools: {allowed_tools}")
@@ -352,7 +287,7 @@ async def on_message(message):
             })
         elif user_permission_role == "supervisor":
             # Call agent for supervisor
-            allowed_tools = ['query', 'summarize', 'summarize_by_time', 'search'] # Tools allowed for supervisor use
+            allowed_tools = ['query', 'summarize', 'summarize_by_time', 'search', 'create_event', 'edit_event']  # Can edit but not delete
             role_name = "supervisor_agent"
             agent = Agent(role_name=role_name, allowed_tools=allowed_tools)
             logging.info(f"User {user_name} (Supervisor) is using agent with tools: {allowed_tools}")
@@ -429,67 +364,122 @@ async def on_message(message):
             events = response.get("events", [])
             try:
                 if events:
-                    logging.info("Creating {len(events)} event(s) for user {user_name}")
-
+                    logging.info(f"📅 Processing {len(events)} event action(s) for user {user_name}")
+                    
                     for event_data in events:
                         try:
+                            action = event_data.get('action', 'create')  # Default to create for backward compatibility
                             event_dict = event_data['event_details']
                             event_user_id = event_data['user_id']
                             event_guild = event_data['guild']
-
-                            overwrites = {
-                                event_guild.default_role: discord.PermissionOverwrite(connect=False),
-                                message.author: discord.PermissionOverwrite(connect=True)
-                            }
-
-                            for guest in message.mentions:
-                                if guest:
-                                    overwrites[guest] = discord.PermissionOverwrite(connect=True)
                             
-                            voice_channel = await event_guild.create_voice_channel(
-                                name=event_dict['title'],
-                                overwrites=overwrites
-                            )
+                            if action == 'create':
+                                # Existing create event logic
+                                overwrites = {
+                                    event_guild.default_role: discord.PermissionOverwrite(connect=False),
+                                    message.author: discord.PermissionOverwrite(connect=True)
+                                }
 
-                            discord_event = await event_guild.create_scheduled_event(
-                                name=event_dict['title'],
-                                start_time=event_dict['start_dt'],
-                                end_time=event_dict['end_dt'],
-                                entity_type=discord.EntityType.voice,
-                                channel=voice_channel,
-                                privacy_level=discord.PrivacyLevel.guild_only
-                            )
+                                for guest in message.mentions:
+                                    if guest:
+                                        overwrites[guest] = discord.PermissionOverwrite(connect=True)
+                                    
+                                voice_channel = await event_guild.create_voice_channel(
+                                    name=event_dict['title'],
+                                    overwrites=overwrites
+                                )
 
-                            await message.channel.send(f"✅ Scheduled event: {discord_event.name}")
+                                discord_event = await event_guild.create_scheduled_event(
+                                    name=event_dict['title'],
+                                    start_time=event_dict['start_dt'],
+                                    end_time=event_dict['end_dt'],
+                                    entity_type=discord.EntityType.voice,
+                                    channel=voice_channel,
+                                    privacy_level=discord.PrivacyLevel.guild_only
+                                )
 
-                            try:
-                                calendar_link, event_id = create_gcal_event(event_dict, event_user_id)
-                                event_dict['gcal_link'] = calendar_link
-                                event_dict['gcal_event_id'] = event_id
-                                await message.channel.send(f"📅 Google Calendar event created: {calendar_link}")
-                            except Exception as e:
-                                logging.error(f"❌ Error creating Google Calendar event: {e}")
-                                await message.channel.send(f"❌ Error creating Google Calendar event: {e}")
-                            
-                            for user in message.mentions:
+                                await message.channel.send(f"✅ Scheduled event: {discord_event.name}")
+
                                 try:
-                                    await user.send(f"You've been invited to **{event_dict['title']}** on {event_dict['start_dt']}.")
-                                    await user.send(f"📅 You've been invited to **{event_dict['title']}**!\n"
-                                                    f"🕒 When: {event_dict['start_dt']} to {event_dict['end_dt']}\n"
-                                                    f"🔗 Add it to your calendar: {calendar_link}")
-                                except discord.Forbidden:
-                                    print(f"❌ Can't DM {user.name}")
+                                    calendar_link, event_id = create_gcal_event(event_dict, event_user_id)
+                                    event_dict['gcal_link'] = calendar_link
+                                    event_dict['gcal_event_id'] = event_id
+                                    await message.channel.send(f"📅 Google Calendar event created: {calendar_link}")
+                                except Exception as gcal_error:
+                                    logging.error(f"❌ Failed to create Google Calendar event: {gcal_error}")
+                                    await message.channel.send("✅ Discord event created, but Google Calendar event failed.")
+                                
+                                # Send DMs to mentioned users
+                                for user in message.mentions:
+                                    try:
+                                        await user.send(f"📅 You've been invited to **{event_dict['title']}**!\n"
+                                                      f"🕒 When: {event_dict['start_dt']} to {event_dict['end_dt']}\n"
+                                                      f"🔗 Add it to your calendar: {calendar_link if 'calendar_link' in locals() else 'N/A'}")
+                                    except discord.Forbidden:
+                                        logging.warning(f"❌ Can't DM {user.name}")
                             
-                            logging.info(f"✅ Event {discord_event.name} created successfully.")
-
-                        except Exception as e:
-                            logging.error(f"❌ Error creating event: {e}")
-                            await message.channel.send(f"❌ Error creating event: {e}")
-                            continue
+                            elif action == 'edit':
+                                # Edit existing event
+                                updated_event = discord.utils.get(event_guild.scheduled_events, name=event_dict['title'])
+                                
+                                if updated_event:
+                                    await updated_event.edit(
+                                        name=event_dict['title'],
+                                        start_time=event_dict['start_dt'],
+                                        end_time=event_dict['end_dt']
+                                    )
+                                    
+                                    # Edit Google Calendar event if gcal_event_id exists
+                                    if 'gcal_event_id' in event_dict:
+                                        edit_gcal_event(event_dict)
+                                    
+                                    await message.channel.send(f"✅ UPDATE - Event updated: {updated_event.name}")
+                                    
+                                    # Send update DMs
+                                    for user in message.mentions:
+                                        try:
+                                            await user.send(f"📅 Event updated: **{event_dict['title']}** on {event_dict['start_dt']}.")
+                                        except discord.Forbidden:
+                                            logging.warning(f"❌ Can't DM {user.name}")
+                                else:
+                                    await message.channel.send(f"❌ Could not find event '{event_dict['title']}' to edit.")
+                            
+                            elif action == 'delete':
+                                # Delete existing event
+                                deleted_event = discord.utils.get(event_guild.scheduled_events, name=event_dict['title'])
+                                
+                                if deleted_event:
+                                    await deleted_event.delete()
+                                    
+                                    # Delete associated voice channel
+                                    vc_channel = discord.utils.get(event_guild.voice_channels, name=deleted_event.name)
+                                    if vc_channel:
+                                        await vc_channel.delete()
+                                    
+                                    await message.channel.send(f"🗑️ Event '{deleted_event.name}' has been deleted.")
+                                    
+                                    # Delete Google Calendar event if gcal_event_id exists
+                                    if 'gcal_event_id' in event_dict:
+                                        delete_gcal_event(event_dict['gcal_event_id'])
+                                    
+                                    # Send deletion DMs
+                                    for user in message.mentions:
+                                        try:
+                                            await user.send(f"🗑️ Event deleted: **{event_dict['title']}** on {event_dict['start_dt']}.")
+                                        except discord.Forbidden:
+                                            logging.warning(f"❌ Can't DM {user.name}")
+                                else:
+                                    await message.channel.send(f"❌ Could not find event '{event_dict['title']}' to delete.")
+                            
+                            logging.info(f"✅ Successfully processed {action} action for event: {event_dict.get('title', 'Unknown')}")
+                            
+                        except Exception as event_error:
+                            logging.error(f"❌ Failed to process event action: {event_error}")
+                            await message.channel.send(f"❌ Failed to process event action: {event_error}")
 
             except Exception as e:
-                logging.error(f"❌ Error creating events: {e}")
-                await message.channel.send(f"❌ Error creating events: {e}")
+                logging.error(f"❌ Error processing events: {e}")
+                await message.channel.send(f"❌ Error processing events: {e}")
 
         except Exception as e:
             await message.channel.send(f"❌ Error: {e}")

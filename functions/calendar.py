@@ -46,6 +46,9 @@ def get_event_details(event_details):
 
     Use ISO 8601 strings for the times. Do not include code fences, markdown formatting, or any other text.
 
+    IMPORTANT INFORMATION:
+    - Today's date is {datetime.datetime.now().strftime('%Y-%m-%d')}
+
     ### EVENT DETAILS ###
     {event_details}
     """
@@ -83,12 +86,25 @@ def get_event_details(event_details):
         parsed['start_dt'] = datetime.datetime.fromisoformat(parsed['start_dt'])
         parsed['end_dt'] = datetime.datetime.fromisoformat(parsed['end_dt'])
         
+        # Make parsed datetimes timezone-aware if they're naive
+        if parsed['start_dt'].tzinfo is None:
+            parsed['start_dt'] = parsed['start_dt'].replace(tzinfo=local_tz)
+        if parsed['end_dt'].tzinfo is None:
+            parsed['end_dt'] = parsed['end_dt'].replace(tzinfo=local_tz)
+        
+        # Get current time with timezone for comparison
+        now = datetime.datetime.now(local_tz)
+        
+        # Check if start time is in the past
+        if parsed['start_dt'] < now:
+            print("Warning: Start time is in the past. Setting start time to 1 hour before end time.")
+            parsed['start_dt'] = parsed['end_dt'] - datetime.timedelta(hours=1)
         if parsed['end_dt'] <= parsed['start_dt']:
             print("Warning: End time is before or equal to start time. Setting end time to 1 hour after start time.")
             parsed['end_dt'] = parsed['start_dt'] + datetime.timedelta(hours=1)
 
-        parsed['start_dt'] = parsed['start_dt'].replace(tzinfo=local_tz).astimezone(datetime.timezone.utc)
-        parsed['end_dt'] = parsed['end_dt'].replace(tzinfo=local_tz).astimezone(datetime.timezone.utc)
+        parsed['start_dt'] = parsed['start_dt'].astimezone(datetime.timezone.utc)
+        parsed['end_dt'] = parsed['end_dt'].astimezone(datetime.timezone.utc)
 
         return parsed
 
@@ -137,7 +153,6 @@ def create_gcal_event(event_dict, user_id):
     return created_event.get('hangoutLink'), event_id
 
 def edit_event_details(event_details, event_list):
-
     prompt = f"""
     You are a helpful assistant that updates calendar events based on natural language instructions.
 
@@ -153,15 +168,21 @@ def edit_event_details(event_details, event_list):
     5. Keep the formatting and datatypes for the values mapped to 'title' the same as the original dictionary.
     6. DO NOT CHANGE THE VALUES MAPPED TO 'gcal_event_id' OR 'gcal_link'.
 
+    Return ONLY the modified dictionary and nothing else.
+    MAKE SURE THE LENGTH OF THE MEETING (end time - start time) STAYS THE SAME UNLESS EXPLICITLY CHANGED.
+    Do not include any code blocks, extra formatting, or explanation.
+
+    IMPORTANT INFORMATION:
+    - Today's date is {datetime.datetime.now().strftime('%Y-%m-%d')}
+    - Current time is {datetime.datetime.now().strftime('%H:%M')}
+
     ### EXISTING EVENTS ###
     {event_list}
 
     ### MESSAGE ###
     {event_details}
 
-    Return ONLY the modified dictionary and nothing else.
-    MAKE SURE THE LENGTH OF THE MEETING (end time - start time) STAYS THE SAME UNLESS EXPLICITLY CHANGED.
-    Do not include any code blocks, extra formatting, or explanation.
+    NEW EVENT DETAILS:
     """
     try:
         print("Calling Gemini model...")
@@ -169,41 +190,63 @@ def edit_event_details(event_details, event_list):
         print("Gemini raw output:", response.content)
 
         raw = response.content.strip()
+        
+        # Remove code blocks if present
         if raw.startswith("```"):
             raw = raw.strip("`").strip()
+            if raw.startswith("python"):
+                raw = raw[6:].strip()
         
-        parsed = ast.literal_eval(raw)
+        # Handle cases where model returns JSON format instead of Python dict
+        if raw.startswith('{') and raw.endswith('}'):
+            # Try to parse as JSON first, then convert to dict
+            try:
+                parsed = json.loads(raw)
+            except json.JSONDecodeError:
+                # Fall back to ast.literal_eval for Python dict format
+                parsed = ast.literal_eval(raw)
+        else:
+            # Handle other formats like "python" prefix
+            if raw.startswith('python'):
+                raw = raw[6:].strip()
+            parsed = ast.literal_eval(raw)
 
         local_tz = get_localzone()
 
+        # Convert string timestamps to datetime objects first
         parsed['start_dt'] = datetime.datetime.fromisoformat(parsed['start_dt'])
         parsed['end_dt'] = datetime.datetime.fromisoformat(parsed['end_dt'])
 
-        parsed['start_dt'] = parsed['start_dt'].astimezone(local_tz)
-        parsed['end_dt'] = parsed['end_dt'].astimezone(local_tz)
+        # Make parsed datetimes timezone-aware if they're naive
+        if parsed['start_dt'].tzinfo is None:
+            parsed['start_dt'] = parsed['start_dt'].replace(tzinfo=local_tz)
+        if parsed['end_dt'].tzinfo is None:
+            parsed['end_dt'] = parsed['end_dt'].replace(tzinfo=local_tz)
+        
+        # Get current time with SAME TIMEZONE for comparison
+        now = datetime.datetime.now(local_tz)
+
+        # Check if start time is in the past - BOTH NOW TIMEZONE-AWARE
+        if parsed['start_dt'] < now:
+            print("Warning: Start time is in the past. Adjusting to future time.")
+            # If editing to a time in the past, move it to tomorrow at the same time
+            tomorrow = now.replace(hour=parsed['start_dt'].hour, minute=parsed['start_dt'].minute, second=0, microsecond=0) + datetime.timedelta(days=1)
+            duration = parsed['end_dt'] - parsed['start_dt']
+            parsed['start_dt'] = tomorrow
+            parsed['end_dt'] = tomorrow + duration
+            
+        if parsed['end_dt'] <= parsed['start_dt']:
+            print("Warning: End time is before or equal to start time. Setting end time to 1 hour after start time.")
+            parsed['end_dt'] = parsed['start_dt'] + datetime.timedelta(hours=1)
+
+        # Convert to UTC for Discord API - THIS WAS MISSING!
+        parsed['start_dt'] = parsed['start_dt'].astimezone(datetime.timezone.utc)
+        parsed['end_dt'] = parsed['end_dt'].astimezone(datetime.timezone.utc)
 
         return parsed
 
     except Exception as e:
         print(f"Error generating event details: {e}")
-        return None
-
-def edit_gcal_event(updated_event_dict):
-    try:
-        service = get_calendar_service()
-
-        updated_event = {
-            'summary': updated_event_dict['title'],
-            'start': {'dateTime': updated_event_dict['start_dt'].isoformat()},
-            'end': {'dateTime': updated_event_dict['end_dt'].isoformat()}
-        }
-
-        result = service.events().patch(calendarId='primary', eventId=updated_event_dict['gcal_event_id'], body=updated_event).execute()
-        print(f"✅ Event '{result['summary']}' updated.")
-        return result.get('htmlLink')
-    
-    except Exception as e:
-        print(f"❌ Error editing Google Calendar event: {e}")
         return None
 
 def delete_event_details(event_details, event_list):
@@ -242,16 +285,25 @@ def delete_event_details(event_details, event_list):
 
         local_tz = get_localzone()
 
+        # Convert string timestamps to datetime objects
         parsed['start_dt'] = datetime.datetime.fromisoformat(parsed['start_dt'])
         parsed['end_dt'] = datetime.datetime.fromisoformat(parsed['end_dt'])
 
-        parsed['start_dt'] = parsed['start_dt'].astimezone(local_tz)
-        parsed['end_dt'] = parsed['end_dt'].astimezone(local_tz)
+        # Make timezone-aware if needed
+        if parsed['start_dt'].tzinfo is None:
+            parsed['start_dt'] = parsed['start_dt'].replace(tzinfo=local_tz)
+        if parsed['end_dt'].tzinfo is None:
+            parsed['end_dt'] = parsed['end_dt'].replace(tzinfo=local_tz)
+
+        # Convert to UTC for Discord API consistency
+        parsed['start_dt'] = parsed['start_dt'].astimezone(datetime.timezone.utc)
+        parsed['end_dt'] = parsed['end_dt'].astimezone(datetime.timezone.utc)
 
         return parsed
 
     except Exception as e:
         print(f"Error generating event details: {e}")
+        return None
 
 def delete_gcal_event(event_id):
     try:

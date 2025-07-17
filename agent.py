@@ -34,7 +34,7 @@ import discord
 from functions.query import query_data
 from functions.summary import summarize_conversation, summarize_conversation_by_time
 from functions.search import search_conversation, search_conversation_quick
-from functions.calendar import cal_handler, get_calendar_service, get_event_details, get_localzone, edit_gcal_event, create_gcal_event, delete_gcal_event
+from functions.calendar import *
 from memory_storage import memory_storage
 
 # Ensure the logs directory exists
@@ -75,7 +75,7 @@ class Agent:
     Agent class to handle the conversation and tool interactions.
     """
 
-    def __init__(self, role_name='default_role', allowed_tools=['query', 'summarize', 'summarize_by_time', 'search', 'create_event']):
+    def __init__(self, role_name='default_role', allowed_tools=['query', 'summarize', 'summarize_by_time', 'search', 'create_event', 'edit_event', 'delete_event'], model_name=model_name):
         """
         Initialize the Agent with a role and a list of allowed tools.
         """
@@ -302,8 +302,103 @@ class Agent:
         if not guild:
             return "❌ Error: Unable to edit event without guild context."
         
-        
+        try:
+            existing_events = []
+            for event in guild.scheduled_events:
+                existing_events.append({
+                    'title': event.name,
+                    'start_dt': event.start_time.isoformat(),
+                    'end_dt': event.end_time.isoformat(),
+                    'discord_event_id': event.id
+                })
+            
+            if not existing_events:
+                return "❌ Error: No events found to edit."
+            
+            updated_event_dict = edit_event_details(query, existing_events)
 
+            if not updated_event_dict:
+                return "❌ Error: Unable to parse event details from the query."
+            
+            if not hasattr(Agent, '_current_instance'):
+                Agent._current_instance = None
+
+            if Agent._current_instance:
+                if not hasattr(Agent._current_instance, '_pending_events'):
+                    Agent._current_instance._pending_events = []
+                
+                Agent._current_instance._pending_events.append({
+                    "action": 'edit',
+                    "user_id": user_id,
+                    "event_details": updated_event_dict,
+                    "guild": guild
+                })
+            
+            return f"Event edited based on query: {query}"
+        except Exception as e:
+            print(f"Error editing event: {e}")
+            return f"❌ Error editing event: {str(e)}"
+    
+    @tool
+    def delete_event(user_id: str, query: str) -> str:
+        """
+        Delete an existing calendar event based on the user's query.
+
+        Args:
+            user_id (str): The ID of the user deleting the event.
+            query (str): The user's query describing which event to delete.
+        Returns:
+            str: A message indicating the result of the event deletion.
+        """
+        print("DELETING EVENT")
+
+        guild = None
+        if hasattr(Agent, '_current_instance') and Agent._current_instance:
+            guild = Agent._current_instance._current_guild
+        
+        if not guild:
+            return "❌ Error: Unable to delete event without guild context."
+
+        try:
+            # Get existing events from the guild
+            existing_events = []
+            for event in guild.scheduled_events:
+                existing_events.append({
+                    'title': event.name,
+                    'start_dt': event.start_time.isoformat(),
+                    'end_dt': event.end_time.isoformat(),
+                    'discord_event_id': event.id
+                })
+            
+            if not existing_events:
+                return "❌ No existing events found to delete."
+
+            event_to_delete = delete_event_details(query, existing_events)
+            
+            if not event_to_delete:
+                return "❌ Error: Could not identify which event to delete."
+            
+            # Store the delete request for the Discord bot to handle
+            if not hasattr(Agent, '_current_instance'):
+                Agent._current_instance = None
+            
+            if Agent._current_instance:
+                if not hasattr(Agent._current_instance, '_pending_events'):
+                    Agent._current_instance._pending_events = []
+                
+                Agent._current_instance._pending_events.append({
+                    'action': 'delete',
+                    'event_details': event_to_delete,
+                    'user_id': user_id,
+                    'guild': guild
+                })
+
+            return f"🗑️ Event '{event_to_delete.get('title', 'Untitled')}' will be deleted."
+            
+        except Exception as e:
+            print(f"Error in delete_event tool: {e}")
+            return f"❌ Error deleting event: {str(e)}"
+    
     def conductor(self, state: State) -> dict:
         Agent._current_instance = self
         self._pending_images = []
@@ -335,6 +430,8 @@ class Agent:
             'summarize_by_time': '- summarize_by_time: For summarizing conversation history within a specific time range.\n',
             'search': '- search: For searching the conversation history for specific information.\n',
             'create_event': '- create_event: For creating calendar events based on user queries. It can parse event details and create events in the user\'s calendar.\n',
+            'edit_event': '- edit_event: For editing existing calendar events based on user queries. It can parse event details and update events in the user\'s calendar.\n',
+            'delete_event': '- delete_event: For deleting existing calendar events based on user queries. It can identify which event to delete based on the user\'s description.\n'
         }
         descriptions = [all_descriptions[t] for t in self.allowed_tools]
 
@@ -344,6 +441,8 @@ class Agent:
             'query': '- "query database" or specific data requests → Use query tool\n',
             'summarize': '- "general summary" → Use summarize tool\n',
             'create_event': '- "create event" or "add to calendar" → Use create_event tool\n',
+            'edit_event': '- "edit event" or "update calendar" → Use edit_event tool\n',
+            'delete_event': '- "delete event" or "remove from calendar" → Use delete_event tool\n'
         }
         when_to_use = [all_when_to_use[t] for t in self.allowed_tools]
 
