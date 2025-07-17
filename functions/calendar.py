@@ -121,13 +121,27 @@ def get_event_details(event_details):
             print("Gemini raw output:", response.content)
 
             raw = response.content.strip()
-            raw = raw.replace('null', 'None')
-            print("Updated output:", raw)
+        
+            # Remove code blocks if present
             if raw.startswith("```"):
                 raw = raw.strip("`").strip()
+                if raw.startswith("python"):
+                    raw = raw[6:].strip()
             
-            parsed = ast.literal_eval(raw)
-
+            # Handle cases where model returns JSON format instead of Python dict
+            if raw.startswith('{') and raw.endswith('}'):
+                # Try to parse as JSON first, then convert to dict
+                try:
+                    parsed = json.loads(raw)
+                except json.JSONDecodeError:
+                    # Fall back to ast.literal_eval for Python dict format
+                    parsed = ast.literal_eval(raw)
+            else:
+                # Handle other formats like "python" prefix
+                if raw.startswith('python'):
+                    raw = raw[6:].strip()
+                    parsed = ast.literal_eval(raw)
+    
             local_tz = get_localzone()
             if parsed['search_start'] != 'None':
                 parsed['search_start'] = datetime.datetime.fromisoformat(parsed['search_start'])
