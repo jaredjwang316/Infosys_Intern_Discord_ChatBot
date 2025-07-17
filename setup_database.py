@@ -40,6 +40,7 @@ import psycopg2
 from psycopg2 import OperationalError
 from faker import Faker
 from itertools import product
+from db_connector import get_db_connection
 
 def transform_mysql_to_postgres(stmt: str) -> str:
     """
@@ -85,10 +86,7 @@ def main():
 
     # Connect to RDS
     try:
-        conn = psycopg2.connect(
-            host=host, port=port, user=user, password=pwd, dbname=db
-        )
-        conn.autocommit = True
+        conn = get_db_connection()
         cur = conn.cursor()
     except OperationalError as e:
         print("❌ Could not connect to Postgres:", e)
