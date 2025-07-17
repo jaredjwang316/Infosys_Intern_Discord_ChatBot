@@ -41,7 +41,7 @@ model = ChatVertexAI(
 )
 
 embedding_model = VertexAIEmbeddings(
-    model_name="models/text-embedding-004"
+    model_name="text-embedding-004"
 )
 
 connection_string = f"postgresql+psycopg2://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
