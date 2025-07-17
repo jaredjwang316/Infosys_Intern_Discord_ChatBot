@@ -2,6 +2,65 @@ import os
 import re
 import logging
 
+# --- Helper Redaction Functions ---
+
+def _redact_phone_number(text: str, partial: bool = False) -> str:
+    """
+    Redacts phone numbers from text.
+    If partial is True, only the last 5 digits are exposed.
+    Supports common formats: (XXX) XXX-XXXX, XXX-XXX-XXXX, XXX.XXX.XXXX, XXXXXXXXXX.
+    """
+    # Regex to find common phone number patterns
+    # This regex is designed to be broad to catch various formats
+    phone_regex = r'\b(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b'
+
+    def replacer(match):
+        phone_num = match.group(0)
+        if partial and len(phone_num) > 5:
+            return '[REDACTED]' + phone_num[-5:]
+        return '[REDACTED_PHONE_NUMBER]'
+
+    return re.sub(phone_regex, replacer, text)
+
+def _redact_email_address(text: str, partial: bool = False) -> str:
+    """
+    Redacts email addresses from text.
+    If partial is True, only the domain is exposed.
+    """
+    # Regex for email addresses
+    email_regex = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
+
+    def replacer(match):
+        email = match.group(0)
+        if partial:
+            # Keep only the domain part
+            parts = email.split('@')
+            if len(parts) == 2:
+                return '[REDACTED]@' + parts[1]
+        return '[REDACTED_EMAIL_ADDRESS]'
+
+    return re.sub(email_regex, replacer, text)
+
+def _redact_physical_address(text: str, partial: bool = False) -> str:
+    """
+    Redacts physical addresses from text.
+    If partial is True, only the last 5 characters are exposed.
+    This is a more complex regex and might need refinement based on specific address formats.
+    It tries to capture street numbers, street names, city, state/province, and zip/postal codes.
+    """
+    # This regex attempts to capture common address components.
+    # It's a simplified approach and might not catch all variations or might over-redact.
+    # A more robust solution might involve a dedicated NLP library or a more extensive regex.
+    address_regex = r'\b\d{1,5}\s(?:[A-Za-z0-9]+\s){1,5}(?:Street|St|Avenue|Ave|Road|Rd|Boulevard|Blvd|Lane|Ln|Drive|Dr|Court|Ct|Place|Pl|Square|Sq|Terrace|Ter|Way|Wy|Circle|Cir|Parkway|Pkwy|Route|Rt|Highway|Hwy)\b(?:,?\s(?:[A-Za-z]+\s){1,3}(?:[A-Za-z]{2}|[A-Z]{2})\s\d{5}(?:-\d{4})?)?\b'
+    
+    def replacer(match):
+        address = match.group(0)
+        if partial and len(address) > 5:
+            return '[REDACTED]' + address[-5:]
+        return '[REDACTED_PHYSICAL_ADDRESS]'
+
+    return re.sub(address_regex, replacer, text, flags=re.IGNORECASE)
+
 # --- Redaction Function ---
 def redact_error_message(error_message: str) -> str:
     """
@@ -129,6 +188,11 @@ def redact_error_message(error_message: str) -> str:
         redacted_message
     )
 
+    # Apply full redaction for phone numbers, emails, and physical addresses in general error messages
+    redacted_message = _redact_phone_number(redacted_message, partial=False)
+    redacted_message = _redact_email_address(redacted_message, partial=False)
+    redacted_message = _redact_physical_address(redacted_message, partial=False)
+
 
     # Add a general indicator that information was redacted
     if redacted_message != error_message:
@@ -148,7 +212,24 @@ class RedactionFilter(logging.Filter):
     def filter(self, record):
         # Redact the main log message
         if isinstance(record.msg, str):
-            record.msg = redact_error_message(record.msg) # Removed api_key argument
+            original_msg = record.msg
+            
+            # Apply specific redaction rules based on log message prefix
+            if original_msg.startswith("💬 Content:"):
+                # Redact phone numbers, emails, and addresses except for the last 5 chars/domain
+                redacted_msg = _redact_phone_number(original_msg, partial=True)
+                redacted_msg = _redact_email_address(redacted_msg, partial=True)
+                redacted_msg = _redact_physical_address(redacted_msg, partial=True)
+                record.msg = redacted_msg
+            elif original_msg.startswith("LLM INPUT") or original_msg.startswith("LLM OUTPUT"):
+                # Completely redact phone numbers, emails, and addresses
+                redacted_msg = _redact_phone_number(original_msg, partial=False)
+                redacted_msg = _redact_email_address(redacted_msg, partial=False)
+                redacted_msg = _redact_physical_address(redacted_msg, partial=False)
+                record.msg = redacted_msg
+            else:
+                # For all other messages, use the general error message redaction
+                record.msg = redact_error_message(record.msg) # Removed api_key argument
         
         # Redact exception traceback details (if present)
         if record.exc_text:
