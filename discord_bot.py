@@ -18,21 +18,45 @@ Key Technologies:
 - 💬 **discord_bot.py** — Handles real-time interaction with users in Discord servers.
 """
 import os
+from pathlib import Path # A modern way to handle paths
 import discord
 import logging
 import sys
 import asyncio
 import io
-
-from dotenv import load_dotenv
-from langchain_google_genai import ChatGoogleGenerativeAI
 import datetime
 
+from dotenv import load_dotenv
+load_dotenv()  # Load environment variables as early as possible
+
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
+from langchain_google_genai import ChatGoogleGenerativeAI
 from memory_storage import memory_storage
 from agent import Agent
 
-load_dotenv()
+# Print the current working directory (for debugging purposes)
+current_working_directory = os.getcwd()
+print(f"Current Working Directory (os.getcwd()): {current_working_directory}")
+
+# Another way using pathlib (for debugging purposes)
+current_working_directory_pathlib = Path.cwd()
+print(f"Current Working Directory (Path.cwd()): {current_working_directory_pathlib}")
+
+# Check for the .env file in the CWD (for debugging purposes)
+env_file_in_cwd = Path(current_working_directory) / ".env"
+print(f"Checking for .env in CWD: {env_file_in_cwd} - Exists: {env_file_in_cwd.exists()}")
+
+# --- Debugging .env variables after load_dotenv() ---
+print("--- Debugging .env variables AFTER load_dotenv() ---")
+print(f"DB_USER: {os.getenv('DB_USER')}")
+print(f"DB_PASSWORD: {os.getenv('DB_PASSWORD')[:3] if os.getenv('DB_PASSWORD') else 'None'}...") # Print first 3 chars
+print(f"DB_NAME: {os.getenv('DB_NAME')}")
+print(f"GOOGLE_API_KEY: {os.getenv('GOOGLE_API_KEY')[:3] if os.getenv('GOOGLE_API_KEY') else 'None'}...") # Print first 3 chars
+print(f"DISCORD_BOT_TOKEN: {os.getenv('DISCORD_BOT_TOKEN')[:3] if os.getenv('DISCORD_BOT_TOKEN') else 'None'}...") # Print first 3 chars
+print(f"MODEL_NAME: {os.getenv('MODEL_NAME')}")
+print("--- End Debugging .env variables AFTER load_dotenv() ---")
+
+
 api_key       = os.getenv("GOOGLE_API_KEY")
 discord_token = os.getenv("DISCORD_BOT_TOKEN")
 model_name = os.getenv("MODEL_NAME")

@@ -157,7 +157,7 @@ class RedactionFilter(logging.Filter):
         return True # Always return True to allow the record to be processed
 
 # --- Logging Configuration Function ---
-def configure_logging_with_redaction(log_level=logging.INFO, log_filename=None): # Removed api_key from signature
+def configure_logging_with_redaction(log_level=logging.DEBUG, log_filename=None): # Removed api_key from signature
     """
     Configures the root logger with a file handler, stream handler,
     and the RedactionFilter.

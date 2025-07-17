@@ -44,7 +44,7 @@ log_filename = os.path.join("logs", f"agent_session_{timestamp}.log")
 
 # Set up logging
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,
     format="%(asctime)s [%(levelname)s] %(message)s",
     handlers=[
         logging.FileHandler(log_filename, encoding="utf-8"),  # File
