@@ -1,25 +1,32 @@
-asyncio
-datetime
-python-dotenv
-discord
-logging
-psycopg2-binary
+# requirements.txt
+
+# --- AI & LangChain Framework ---
 langchain
-langchain-community
-langchain-google-genai
-langchain-openai
 langchain-core
+langchain-community
+langchain-openai
+langchain-google-genai
 langchain-google-vertexai
-google-genai
-faker
-pgvector
-matplotlib
-pybase64
 langgraph
 langsmith
-langchain[google-genai]
-tzlocal
-google-auth-oauthlib
+
+# --- Google & Cloud Services ---
 google-api-python-client
-dateparser
+google-auth-oauthlib
 google-cloud-secret-manager
+google-genai
+
+# --- Discord Bot Library ---
+discord.py
+
+# --- Database ---
+psycopg2-binary
+pgvector
+
+# --- Utilities & Other ---
+python-dotenv
+faker
+matplotlib
+pybase64
+tzlocal
+dateparser
