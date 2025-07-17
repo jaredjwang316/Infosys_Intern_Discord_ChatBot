@@ -26,8 +26,7 @@ import psycopg2
 from psycopg2 import OperationalError
 import matplotlib.pyplot as plt
 import io
-
-
+from db_connector import get_db_connection
 
 # Determine if a query asks for visualization
 def is_visualization_query(user_query):
@@ -204,7 +203,7 @@ PG_CONFIG = {
 print("Connecting to Postgres...")
 
 try:
-    conn = psycopg2.connect(**PG_CONFIG)
+    conn = get_db_connection()
     conn.autocommit = True
     cur  = conn.cursor()
 except OperationalError as e:
