@@ -42,9 +42,13 @@ os.makedirs("logs", exist_ok=True)
 timestamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H-%M-%SZ")
 log_filename = os.path.join("logs", f"agent_session_{timestamp}.log")
 
+# Configure sensitivity filter to redact sensitive information in logs
+sensitivity_filter.configure_logging_with_redaction(log_level=logging.INFO, log_filename=log_filename)
+
+
 # Set up logging
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
     handlers=[
         logging.FileHandler(log_filename, encoding="utf-8"),  # File
@@ -335,7 +339,14 @@ class Agent:
 
         system_message = HumanMessage(content=message)
 
+        # Log input message to the LLM
+        logging.info(f"LLM INPUT (Conductor): {system_message.content}")
+
         response = self.llm_with_tools.invoke([system_message])
+
+        # Add this line to log the raw LLM response
+        logging.info(f"LLM OUTPUT (Conductor): {response}")
+
 
         print(f"\n##### CONDUCTOR RESPONSE ##### \n\n{response}")
 
@@ -439,7 +450,13 @@ class Agent:
 
         human_message = HumanMessage(content=response_prompt)
 
+        # Log the input message to the LLM for generation
+        logging.info(f"LLM INPUT (Generate Response): {human_message.content}")
+    
         response = self.llm_with_tools.invoke([human_message])
+
+        # Log the raw LLM response
+        logging.info(f"LLM OUTPUT (Generate Response): {response}")
 
         print(f"\n##### RESPONSE ##### \n\n{response}")
 
