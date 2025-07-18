@@ -3,3 +3,4 @@ venv/
 __pycache__/
 logs
 temp.py
+cloud-sql-proxy
