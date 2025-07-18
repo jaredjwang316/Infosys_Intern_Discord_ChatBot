@@ -30,6 +30,7 @@ import logging
 import datetime
 import concurrent.futures
 import sensitivity_filter
+from sensitivity_filter import redact_error_message
 from functions.query import query_data
 from functions.summary import summarize_conversation, summarize_conversation_by_time
 from functions.search import search_conversation, search_conversation_quick
@@ -42,19 +43,8 @@ os.makedirs("logs", exist_ok=True)
 timestamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H-%M-%SZ")
 log_filename = os.path.join("logs", f"agent_session_{timestamp}.log")
 
-# Configure sensitivity filter to redact sensitive information in logs
+# Configure logging with redaction filter, using your generated log filename
 sensitivity_filter.configure_logging_with_redaction(log_level=logging.INFO, log_filename=log_filename)
-
-
-# Set up logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    handlers=[
-        logging.FileHandler(log_filename, encoding="utf-8"),  # File
-        logging.StreamHandler()  # Terminal (optional)
-    ]
-)
 
 os.environ["GOOGLE_API_KEY"] = os.getenv("GOOGLE_API_KEY")
 model_name = os.getenv("MODEL_NAME")
@@ -221,7 +211,8 @@ class Agent:
             except concurrent.futures.TimeoutError:
                 print("Long search operation timed out, using only quick response instead.")
             except Exception as e:
-                print(f"Error during search operation: {sensitivity_filter(e)}")
+                redacted_error = redact_error_message(str(e))
+                logging.error(f"Error during search operation: {redacted_error}")
 
             memory_storage.local_memory.clear_cached_history(channel_id)
 
@@ -339,14 +330,7 @@ class Agent:
 
         system_message = HumanMessage(content=message)
 
-        # Log input message to the LLM
-        logging.info(f"LLM INPUT (Conductor): {system_message.content}")
-
         response = self.llm_with_tools.invoke([system_message])
-
-        # Add this line to log the raw LLM response
-        logging.info(f"LLM OUTPUT (Conductor): {response}")
-
 
         print(f"\n##### CONDUCTOR RESPONSE ##### \n\n{response}")
 
@@ -450,13 +434,7 @@ class Agent:
 
         human_message = HumanMessage(content=response_prompt)
 
-        # Log the input message to the LLM for generation
-        logging.info(f"LLM INPUT (Generate Response): {human_message.content}")
-    
         response = self.llm_with_tools.invoke([human_message])
-
-        # Log the raw LLM response
-        logging.info(f"LLM OUTPUT (Generate Response): {response}")
 
         print(f"\n##### RESPONSE ##### \n\n{response}")
 
