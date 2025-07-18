@@ -12,6 +12,7 @@ import datetime
 import pytz
 import dateparser
 import json
+from google.oauth2.credentials import Credentials
 
 load_dotenv()
 model_name = os.getenv("MODEL_NAME")
@@ -34,23 +35,34 @@ SCOPES = [
 
 def get_google_service(api_name, version):
     creds = None
-    if os.path.exists('token.pkl'):
-        with open('token.pkl', 'rb') as token:
-            creds = pickle.load(token)
-    
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
-            flow = InstalledAppFlow.from_client_secrets_file(
-                'client_secret.json', SCOPES)
-            creds = flow.run_local_server(port=8)
+    try:
+        # Look for token.json instead of token.pkl
+        if os.path.exists('token.json'):
+            with open('token.json', 'r') as token:
+                token_data = json.load(token)
+                creds = Credentials.from_authorized_user_info(token_data, SCOPES)
         
-        with open('token.pkl', 'wb') as token:
-            pickle.dump(creds, token)
+        if not creds or not creds.valid:
+            if creds and creds.expired and creds.refresh_token:
+                creds.refresh(Request())
+                # Save the refreshed token back to JSON
+                with open('token.json', 'w') as token:
+                    token.write(creds.to_json())
+            else:
+                flow = InstalledAppFlow.from_client_secrets_file(
+                    'client_secret.json', SCOPES)
+                creds = flow.run_local_server(port=8080)  # Fixed port number
+                
+                # Save as JSON instead of pickle
+                with open('token.json', 'w') as token:
+                    token.write(creds.to_json())
+        
+        service = build(api_name, version, credentials=creds)
+        return service, creds
     
-    service = build(api_name, version, credentials=creds)
-    return service, creds
+    except Exception as e:
+        print(f"Error getting Google service: {e}")
+        raise
 
 def cal_handler(event_details):
     prompt = f"""

@@ -389,6 +389,7 @@ async def on_message(message):
                                 await message.channel.send(f"✅ Scheduled event: {discord_event.name}")
 
                                 try:
+                                    event_dict['discord_id'] = discord_event.id
                                     calendar_link, event_id = create_gcal_event(event_dict, event_user_id)
                                     event_dict['gcal_link'] = calendar_link
                                     event_dict['gcal_event_id'] = event_id
