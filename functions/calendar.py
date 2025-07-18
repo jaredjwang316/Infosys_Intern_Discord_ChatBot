@@ -24,7 +24,13 @@ model = ChatVertexAI(
     max_retries=2
 )
 
-SCOPES = ['https://www.googleapis.com/auth/calendar.readonly', 'https://www.googleapis.com/auth/calendar.freebusy', 'https://www.googleapis.com/auth/calendar.events', 'https://www.googleapis.com/auth/gmail.send']
+SCOPES = [
+    'https://www.googleapis.com/auth/calendar.readonly', 
+    'https://www.googleapis.com/auth/calendar.freebusy', 
+    'https://www.googleapis.com/auth/calendar.events', 
+    'https://www.googleapis.com/auth/gmail.send'
+]
+
 
 def get_google_service(api_name, version):
     creds = None

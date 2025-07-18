@@ -34,10 +34,7 @@ from agent import Agent
 import concurrent.futures
 import re
 
-from functions.query import *
 from functions.calendar import * 
-from functions.summary import summarize_conversation, summarize_conversation_by_time
-from functions.search import search_conversation, search_conversation_quick
 from db_connector import access_secret_version
 
 project_id = "discord-bot-466220"
@@ -51,7 +48,11 @@ client = discord.Client(intents=intents)
 scheduled_events = []
 str_events = []
 
-server_members = {1385426931905855589: 'aanu203900@gmail.com', 690404946184765471: 'akaadya03@gmail.com'}
+server_members = {
+    1385426931905855589: 'aanu203900@gmail.com',
+    690404946184765471: 'akaadya03@gmail.com',
+    485308464050995245: 'justin88.lai@gmail.com',
+}
 
 def split_response(response, line_split=True):
     """
